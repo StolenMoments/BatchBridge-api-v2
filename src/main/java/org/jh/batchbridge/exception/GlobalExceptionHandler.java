@@ -1,0 +1,49 @@
+package org.jh.batchbridge.exception;
+
+import org.jh.batchbridge.dto.ApiResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(BatchNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBatchNotFound(BatchNotFoundException e) {
+        return buildError(HttpStatus.NOT_FOUND, "BATCH_NOT_FOUND", e.getMessage());
+    }
+
+    @ExceptionHandler(BatchResultNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBatchResultNotFound(BatchResultNotFoundException e) {
+        return buildError(HttpStatus.NOT_FOUND, "BATCH_NOT_FOUND", e.getMessage());
+    }
+
+    @ExceptionHandler(UnsupportedModelException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupportedModel(UnsupportedModelException e) {
+        return buildError(HttpStatus.BAD_REQUEST, "UNSUPPORTED_MODEL", e.getMessage());
+    }
+
+    @ExceptionHandler(ExternalApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
+        return buildError(HttpStatus.BAD_GATEWAY, "EXTERNAL_API_ERROR", e.getMessage());
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(org.springframework.web.bind.MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(java.util.stream.Collectors.joining(", "));
+        return buildError(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", message);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnhandled(Exception e) {
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "Internal server error");
+    }
+
+    private ResponseEntity<ApiResponse<Void>> buildError(HttpStatus status, String code, String message) {
+        return ResponseEntity.status(status)
+                .body(ApiResponse.error(code, message));
+    }
+}
