@@ -1,3 +1,17 @@
+server:
+  port: 8080
 spring:
-  application:
-    name: batchbridge
+  datasource:
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:batch_bridge}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+batch-bridge:
+  api-keys:
+    claude: ${CLAUDE_API_KEY}
+    grok:   ${GROK_API_KEY}
+    gemini: ${GEMINI_API_KEY}
