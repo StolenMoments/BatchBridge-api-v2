@@ -3,6 +3,7 @@ package org.jh.batchbridge.adapter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -103,13 +104,14 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     @Override
     public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
         try {
-            String jsonlBody = restClient.get()
+            byte[] bytes = restClient.get()
                     .uri("/v1/messages/batches/{id}/results", externalBatchId.value())
                     .retrieve()
-                    .body(String.class);
-            if (jsonlBody == null || jsonlBody.isBlank()) {
+                    .body(byte[].class);
+            if (bytes == null || bytes.length == 0) {
                 return Map.of();
             }
+            String jsonlBody = new String(bytes, StandardCharsets.UTF_8);
             Set<Long> expectedPromptIds = prompts == null
                     ? Set.of()
                     : prompts.stream()

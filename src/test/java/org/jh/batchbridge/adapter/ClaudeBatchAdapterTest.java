@@ -14,14 +14,14 @@ class ClaudeBatchAdapterTest {
     @Test
     void parseResults_parsesSucceededAndErroredResults() {
         String jsonlBody = """
-                {"custom_id":"101","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"hello"}]}}}
+                {"custom_id":"101","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"hello 한글"}]}}}
                 {"custom_id":"102","result":{"type":"errored","error":{"message":"bad request"}}}
                 """;
 
         Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L, 102L));
 
         assertThat(results).hasSize(2);
-        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello", null));
+        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello 한글", null));
         assertThat(results.get(102L)).isEqualTo(new PromptResult(false, null, "bad request"));
     }
 
