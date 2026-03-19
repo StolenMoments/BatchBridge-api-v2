@@ -109,26 +109,32 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     }
 
     private Map<String, Object> buildSubmitRequestBody(BatchSubmitRequest request) {
-        Map<String, Object> params = new LinkedHashMap<>();
-        params.put("model", request.model());
-        params.put("max_tokens", defaultMaxTokens);
+        List<Map<String, Object>> requests = request.prompts().stream()
+                .map(prompt -> {
+                    Map<String, Object> params = new LinkedHashMap<>();
+                    params.put("model", request.model());
+                    params.put("max_tokens", defaultMaxTokens);
 
-        if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
-            params.put("system", request.systemPrompt());
-        }
+                    if (prompt.systemPrompt() != null && !prompt.systemPrompt().isBlank()) {
+                        params.put("system", prompt.systemPrompt());
+                    }
 
-        List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of(
-                "role", "user",
-                "content", request.userPrompt()
-        ));
-        params.put("messages", messages);
+                    List<Map<String, Object>> messages = new ArrayList<>();
+                    messages.add(Map.of(
+                            "role", "user",
+                            "content", prompt.userPrompt()
+                    ));
+                    params.put("messages", messages);
 
-        Map<String, Object> batchItem = new LinkedHashMap<>();
-        batchItem.put("custom_id", request.internalRequestId());
-        batchItem.put("params", params);
+                    Map<String, Object> batchItem = new LinkedHashMap<>();
+                    batchItem.put("custom_id", String.valueOf(prompt.promptId()));
+                    batchItem.put("params", params);
 
-        return Map.of("requests", List.of(batchItem));
+                    return batchItem;
+                })
+                .toList();
+
+        return Map.of("requests", requests);
     }
 
     private BatchStatus toBatchStatus(String processingStatus) {

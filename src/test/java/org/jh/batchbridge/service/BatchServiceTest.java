@@ -3,6 +3,7 @@ package org.jh.batchbridge.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -10,10 +11,16 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchListResponse;
+import org.jh.batchbridge.dto.response.BatchSubmitResponse;
+import org.jh.batchbridge.exception.BatchEmptyException;
+import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.UnsupportedModelException;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
@@ -36,6 +43,9 @@ class BatchServiceTest {
 
     @Mock
     private BatchApiClientFactory batchApiClientFactory;
+
+    @Mock
+    private BatchApiPort batchApiPort;
 
     @InjectMocks
     private BatchService batchService;
@@ -104,6 +114,61 @@ class BatchServiceTest {
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).promptCount()).isEqualTo(3);
         verify(batchRepository).findBatchSummaries(any(), any());
+    }
+
+    @Test
+    void submitBatch_SubmitsToExternalAndReturnsInProgressResponse() {
+        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        BatchPrompt prompt = new BatchPrompt("prompt-1", "system", "user");
+        ReflectionTestUtils.setField(prompt, "id", 101L);
+        batch.addPrompt(prompt);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.submitBatch(any())).thenReturn(new ExternalBatchId("msgbatch_01abc123"));
+        when(batchRepository.save(any(Batch.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BatchSubmitResponse response = batchService.submitBatch(1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.status()).isEqualTo(BatchStatus.IN_PROGRESS);
+        assertThat(response.externalBatchId()).isEqualTo("msgbatch_01abc123");
+        assertThat(response.submittedAt()).isNotNull();
+
+        verify(batchApiPort).submitBatch(argThat(request ->
+                "claude-3-5-sonnet-20240620".equals(request.model())
+                        && request.prompts().size() == 1
+                        && Long.valueOf(101L).equals(request.prompts().getFirst().promptId())
+                        && "system".equals(request.prompts().getFirst().systemPrompt())
+                        && "user".equals(request.prompts().getFirst().userPrompt())
+        ));
+        verify(batchRepository).save(batch);
+    }
+
+    @Test
+    void submitBatch_WhenBatchIsNotDraft_ThrowsBatchNotEditable() {
+        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        batch.submit("ext-1");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.submitBatch(1L))
+                .isInstanceOf(BatchNotEditableException.class)
+                .hasMessage("Batch is not editable");
+
+        verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
+    void submitBatch_WhenBatchHasNoPrompts_ThrowsBatchEmpty() {
+        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.submitBatch(1L))
+                .isInstanceOf(BatchEmptyException.class)
+                .hasMessage("Batch has no prompts");
+
+        verifyNoInteractions(batchApiClientFactory);
     }
 
     @Test

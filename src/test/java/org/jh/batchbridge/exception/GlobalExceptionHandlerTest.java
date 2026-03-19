@@ -48,12 +48,32 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void returns409ForBatchNotEditableException() throws Exception {
+        mockMvc.perform(get("/test/batches/not-editable"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_EDITABLE"))
+                .andExpect(jsonPath("$.error.message").value("Batch is not editable"));
+    }
+
+    @Test
+    void returns400ForBatchEmptyException() throws Exception {
+        mockMvc.perform(get("/test/batches/empty"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("BATCH_EMPTY"))
+                .andExpect(jsonPath("$.error.message").value("Batch has no prompts"));
+    }
+
+    @Test
     void returns502ForExternalApiException() throws Exception {
         mockMvc.perform(get("/test/external-api"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
                 .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"))
-                .andExpect(jsonPath("$.error.message").value("외부 API 호출에 실패했습니다."));
+                .andExpect(jsonPath("$.error.message").value("External API call failed."));
     }
 }

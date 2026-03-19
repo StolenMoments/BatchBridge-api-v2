@@ -7,11 +7,15 @@ import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
+import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
+import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
+import org.jh.batchbridge.exception.BatchEmptyException;
+import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
@@ -78,6 +82,28 @@ public class BatchService {
         Batch batch = batchRepository.findById(id)
                 .orElseThrow(() -> new BatchNotFoundException(id));
         return BatchDetailResponse.from(batch);
+    }
+
+    @Transactional
+    public BatchSubmitResponse submitBatch(Long id) {
+        Batch batch = batchRepository.findById(id)
+                .orElseThrow(() -> new BatchNotFoundException(id));
+
+        if (!batch.isEditable()) {
+            throw new BatchNotEditableException("Batch is not editable");
+        }
+        if (batch.getPrompts().isEmpty()) {
+            throw new BatchEmptyException("Batch has no prompts");
+        }
+
+        BatchApiPort adapter = batchApiClientFactory.getAdapter(batch.getModel());
+        BatchSubmitRequest submitRequest = BatchSubmitRequest.from(batch);
+        ExternalBatchId externalId = adapter.submitBatch(submitRequest);
+
+        batch.submit(externalId.value());
+        batchRepository.save(batch);
+
+        return BatchSubmitResponse.from(batch);
     }
 
     @Transactional

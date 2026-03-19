@@ -7,6 +7,7 @@ import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
+import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.service.BatchService;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -53,6 +54,12 @@ public class BatchController {
     public ApiResponse<BatchDetailResponse> getDetail(@PathVariable Long id) {
         BatchDetailResponse response = batchService.getDetail(id);
         return ApiResponse.success(response);
+    }
+
+    @PostMapping("/batches/{id}/submit")
+    public ResponseEntity<ApiResponse<BatchSubmitResponse>> submitBatch(@PathVariable Long id) {
+        BatchSubmitResponse response = batchService.submitBatch(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/batches/{id}/sync")

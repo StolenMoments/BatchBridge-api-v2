@@ -22,8 +22,18 @@ public class ExceptionTestController {
         throw new UnsupportedModelException("gemini-2.0-flash");
     }
 
+    @GetMapping("/test/batches/not-editable")
+    String notEditableBatch() {
+        throw new BatchNotEditableException("Batch is not editable");
+    }
+
+    @GetMapping("/test/batches/empty")
+    String emptyBatch() {
+        throw new BatchEmptyException("Batch has no prompts");
+    }
+
     @GetMapping("/test/external-api")
     String externalApi() {
-        throw new ExternalApiException("외부 API 호출에 실패했습니다.");
+        throw new ExternalApiException("External API call failed.");
     }
 }

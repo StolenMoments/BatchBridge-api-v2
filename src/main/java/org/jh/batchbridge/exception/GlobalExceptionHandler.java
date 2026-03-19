@@ -20,6 +20,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.CONFLICT, "BATCH_NOT_EDITABLE", e.getMessage());
     }
 
+    @ExceptionHandler(BatchEmptyException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBatchEmpty(BatchEmptyException e) {
+        return buildError(HttpStatus.BAD_REQUEST, "BATCH_EMPTY", e.getMessage());
+    }
+
     @ExceptionHandler(PromptNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handlePromptNotFound(PromptNotFoundException e) {
         return buildError(HttpStatus.NOT_FOUND, "PROMPT_NOT_FOUND", e.getMessage());

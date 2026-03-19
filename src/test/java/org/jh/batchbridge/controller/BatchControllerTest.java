@@ -18,6 +18,7 @@ import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchPromptResponse;
+import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
@@ -131,6 +132,26 @@ class BatchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.prompts[0].responseContent").value("result"));
+    }
+
+    @Test
+    void submitBatch_Returns200() throws Exception {
+        BatchSubmitResponse response = new BatchSubmitResponse(
+                1L,
+                BatchStatus.IN_PROGRESS,
+                "msgbatch_01abc123",
+                LocalDateTime.now()
+        );
+
+        when(batchService.submitBatch(1L)).thenReturn(response);
+
+        mockMvc.perform(post("/api/batches/1/submit"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.externalBatchId").value("msgbatch_01abc123"))
+                .andExpect(jsonPath("$.data.submittedAt").exists());
     }
 
     @Test
