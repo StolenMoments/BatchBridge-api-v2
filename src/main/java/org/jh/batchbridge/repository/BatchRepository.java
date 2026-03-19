@@ -12,4 +12,6 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
     List<Batch> findAllByStatus(BatchStatus status);
 
     Page<Batch> findAllByStatus(BatchStatus status, Pageable pageable);
+
+    Page<Batch> findByStatus(BatchStatus status, Pageable pageable);
 }

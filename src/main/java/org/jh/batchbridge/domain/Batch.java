@@ -67,16 +67,62 @@ public class Batch {
         return prompts.isEmpty() ? null : prompts.get(0);
     }
 
-    public void markInProgress() {
+    public boolean isEditable() {
+        return this.status == BatchStatus.DRAFT;
+    }
+
+    public void submit(String externalBatchId) {
         if (this.status != BatchStatus.DRAFT) {
+            throw new IllegalStateException("Only DRAFT batches can be submitted.");
+        }
+        this.status = BatchStatus.IN_PROGRESS;
+        this.externalBatchId = externalBatchId;
+        this.submittedAt = LocalDateTime.now();
+    }
+
+    public void complete(java.util.Map<Long, PromptResult> results) {
+        if (this.status != BatchStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
+        }
+        this.prompts.forEach(p -> {
+            PromptResult r = results.get(p.getId());
+            if (r != null && r.success()) {
+                p.complete(r.responseContent());
+            } else {
+                p.fail(r != null ? r.errorMessage() : "결과 없음");
+            }
+        });
+        this.status = BatchStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+        this.errorMessage = null;
+    }
+
+    public void fail(String errorMessage) {
+        this.status = BatchStatus.FAILED;
+        this.errorMessage = errorMessage;
+        this.completedAt = LocalDateTime.now();
+        for (BatchPrompt prompt : prompts) {
+            prompt.fail(errorMessage);
+        }
+    }
+
+    // Legacy method support (can be removed if Service is updated)
+    public void markInProgress() {
+         // This is now redundant or can call submit(null) if externalBatchId is optional,
+         // but submit requires string.
+         // We will leave this for now or remove it if we update Service.
+         if (this.status != BatchStatus.DRAFT) {
             throw new IllegalStateException("Only DRAFT batches can be moved to IN_PROGRESS.");
         }
         this.status = BatchStatus.IN_PROGRESS;
         this.submittedAt = LocalDateTime.now();
     }
 
+    // Legacy method support
     public void complete(String result) {
-        validateTransitionFromInProgress();
+        if (this.status != BatchStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
+        }
         this.errorMessage = null;
         this.status = BatchStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
@@ -85,29 +131,8 @@ public class Batch {
         }
     }
 
-    public void fail(String errorMessage) {
-        validateTransitionFromInProgress();
-        this.errorMessage = errorMessage;
-        this.status = BatchStatus.FAILED;
-        this.completedAt = LocalDateTime.now();
-        for (BatchPrompt prompt : prompts) {
-            prompt.fail(errorMessage);
-        }
-    }
-
     public void failOnSubmission(String errorMessage) {
-        this.errorMessage = errorMessage;
-        this.status = BatchStatus.FAILED;
-        this.completedAt = LocalDateTime.now();
-        for (BatchPrompt prompt : prompts) {
-            prompt.fail(errorMessage);
-        }
-    }
-
-    private void validateTransitionFromInProgress() {
-        if (this.status != BatchStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Batch must be IN_PROGRESS to complete or fail.");
-        }
+        fail(errorMessage);
     }
 
     public Long getId() {
