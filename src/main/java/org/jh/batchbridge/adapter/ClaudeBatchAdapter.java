@@ -229,7 +229,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             log.warn("Skipped {} invalid/unmatched Claude result line(s)", skippedLines);
         }
         if (!expectedPromptIds.isEmpty() && results.isEmpty()) {
-            throw new ExternalApiException("No valid Claude prompt results parsed from result payload");
+            log.warn("No valid Claude prompt results parsed from payload");
         }
         if (!expectedPromptIds.isEmpty() && results.size() < expectedPromptIds.size()) {
             log.warn("Claude results are missing prompts [expected={}, parsed={}]", expectedPromptIds.size(), results.size());

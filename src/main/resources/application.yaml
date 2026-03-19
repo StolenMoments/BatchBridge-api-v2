@@ -22,3 +22,10 @@ batch-bridge:
     claude: ${CLAUDE_API_KEY}
     grok:   ${GROK_API_KEY}
     gemini: ${GEMINI_API_KEY}
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha

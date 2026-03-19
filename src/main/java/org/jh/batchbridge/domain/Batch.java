@@ -18,6 +18,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
@@ -27,6 +29,10 @@ import org.hibernate.annotations.CreationTimestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Batch {
+
+    private static final Logger log = LoggerFactory.getLogger(Batch.class);
+    private static final String DEFAULT_PROMPT_ERROR_MESSAGE = "No result found for prompt";
+    private static final String PROMPT_PROCESSING_ERROR_MESSAGE = "Failed to process prompt result";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -93,23 +99,35 @@ public class Batch {
         this.submittedAt = LocalDateTime.now();
     }
 
-    private static final String DEFAULT_PROMPT_ERROR_MESSAGE = "No result found for prompt";
-
     public void complete(Map<Long, PromptResult> results) {
         if (this.status != BatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
         }
-        this.prompts.forEach(p -> {
-            PromptResult r = results.get(p.getId());
-            if (r != null && r.success()) {
-                p.complete(r.responseContent());
-            } else {
-                p.fail(r != null ? r.errorMessage() : DEFAULT_PROMPT_ERROR_MESSAGE);
-            }
-        });
+
+        Map<Long, PromptResult> safeResults = results == null ? Map.of() : results;
+        this.prompts.forEach(prompt -> applyPromptResult(prompt, safeResults));
         this.status = BatchStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
         this.errorMessage = null;
+    }
+
+    private void applyPromptResult(BatchPrompt prompt, Map<Long, PromptResult> results) {
+        try {
+            PromptResult result = results.get(prompt.getId());
+            if (result != null && result.success()) {
+                prompt.complete(result.responseContent());
+                return;
+            }
+
+            String errorMessage = DEFAULT_PROMPT_ERROR_MESSAGE;
+            if (result != null && result.errorMessage() != null && !result.errorMessage().isBlank()) {
+                errorMessage = result.errorMessage();
+            }
+            prompt.fail(errorMessage);
+        } catch (RuntimeException e) {
+            log.error("Failed to apply prompt result [batchId={}, promptId={}]", id, prompt.getId(), e);
+            prompt.fail(PROMPT_PROCESSING_ERROR_MESSAGE);
+        }
     }
 
     public void fail(String errorMessage) {

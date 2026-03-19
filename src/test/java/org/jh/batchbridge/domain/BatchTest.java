@@ -48,13 +48,6 @@ class BatchTest {
         Batch batch = new Batch("test", "claude");
         BatchPrompt prompt1 = new BatchPrompt("p1", "sys", "user");
         batch.addPrompt(prompt1);
-        
-        // Simulate persistence (id needed for map key)
-        // Since we can't easily set ID on entity without reflection or repository, 
-        // and map uses ID... wait.
-        // PromptResult map is keyed by prompt ID.
-        // If I can't set ID, I can't test map logic easily without mocking or reflection.
-        // Let's use reflection to set ID for test.
         setField(prompt1, "id", 1L);
 
         batch.submit("ext-1");
@@ -68,6 +61,50 @@ class BatchTest {
         assertThat(batch.getCompletedAt()).isNotNull();
         assertThat(prompt1.getStatus()).isEqualTo(PromptStatus.COMPLETED);
         assertThat(prompt1.getResponseContent()).isEqualTo("response");
+    }
+
+    @DisplayName("complete marks prompts as failed when result is missing")
+    @Test
+    void complete_marksPromptFailedWhenResultMissing() {
+        Batch batch = new Batch("test", "claude");
+        BatchPrompt prompt1 = new BatchPrompt("p1", "sys", "user");
+        BatchPrompt prompt2 = new BatchPrompt("p2", "sys", "user");
+        batch.addPrompt(prompt1);
+        batch.addPrompt(prompt2);
+        setField(prompt1, "id", 1L);
+        setField(prompt2, "id", 2L);
+        batch.submit("ext-1");
+
+        batch.complete(Map.of(1L, new PromptResult(true, "ok", null)));
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(prompt1.getStatus()).isEqualTo(PromptStatus.COMPLETED);
+        assertThat(prompt2.getStatus()).isEqualTo(PromptStatus.FAILED);
+        assertThat(prompt2.getErrorMessage()).isEqualTo("No result found for prompt");
+    }
+
+    @DisplayName("complete continues processing when a prompt throws")
+    @Test
+    void complete_continuesWhenPromptProcessingThrows() {
+        Batch batch = new Batch("test", "claude");
+        BatchPrompt faultyPrompt = new FaultyBatchPrompt("faulty", "sys", "user");
+        BatchPrompt healthyPrompt = new BatchPrompt("healthy", "sys", "user");
+        batch.addPrompt(faultyPrompt);
+        batch.addPrompt(healthyPrompt);
+        setField(faultyPrompt, "id", 1L);
+        setField(healthyPrompt, "id", 2L);
+        batch.submit("ext-1");
+
+        batch.complete(Map.of(
+                1L, new PromptResult(true, "ignored", null),
+                2L, new PromptResult(true, "done", null)
+        ));
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(faultyPrompt.getStatus()).isEqualTo(PromptStatus.FAILED);
+        assertThat(faultyPrompt.getErrorMessage()).isEqualTo("Failed to process prompt result");
+        assertThat(healthyPrompt.getStatus()).isEqualTo(PromptStatus.COMPLETED);
+        assertThat(healthyPrompt.getResponseContent()).isEqualTo("done");
     }
 
     @DisplayName("fail updates batch and prompts status")
@@ -89,11 +126,35 @@ class BatchTest {
 
     private void setField(Object target, String fieldName, Object value) {
         try {
-            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            Class<?> type = target.getClass();
+            java.lang.reflect.Field field = null;
+            while (type != null) {
+                try {
+                    field = type.getDeclaredField(fieldName);
+                    break;
+                } catch (NoSuchFieldException ignored) {
+                    type = type.getSuperclass();
+                }
+            }
+            if (field == null) {
+                throw new NoSuchFieldException(fieldName);
+            }
             field.setAccessible(true);
             field.set(target, value);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static class FaultyBatchPrompt extends BatchPrompt {
+
+        private FaultyBatchPrompt(String label, String systemPrompt, String userPrompt) {
+            super(label, systemPrompt, userPrompt);
+        }
+
+        @Override
+        public void complete(String responseContent) {
+            throw new RuntimeException("forced test failure");
         }
     }
 }

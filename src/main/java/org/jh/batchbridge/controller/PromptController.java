@@ -1,6 +1,8 @@
 package org.jh.batchbridge.controller;
 
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.PromptAddRequest;
@@ -14,11 +16,13 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/batches/{batchId}/prompts")
 @RequiredArgsConstructor
+@Tag(name = "Prompt", description = "Prompt management APIs")
 public class PromptController {
 
     private final PromptService promptService;
 
     @PostMapping
+    @Operation(summary = "Add prompt", description = "Add a prompt to a batch.")
     public ResponseEntity<ApiResponse<BatchPromptResponse>> addPrompt(
             @PathVariable Long batchId,
             @RequestBody @Valid PromptAddRequest request) {
@@ -28,6 +32,7 @@ public class PromptController {
     }
 
     @PutMapping("/{promptId}")
+    @Operation(summary = "Update prompt", description = "Update a prompt in a batch.")
     public ResponseEntity<ApiResponse<BatchPromptResponse>> updatePrompt(
             @PathVariable Long batchId,
             @PathVariable Long promptId,
@@ -37,6 +42,7 @@ public class PromptController {
     }
 
     @DeleteMapping("/{promptId}")
+    @Operation(summary = "Delete prompt", description = "Delete a prompt from a batch.")
     public ResponseEntity<Void> deletePrompt(
             @PathVariable Long batchId,
             @PathVariable Long promptId) {

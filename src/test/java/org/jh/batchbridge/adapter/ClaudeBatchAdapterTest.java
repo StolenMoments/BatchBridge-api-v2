@@ -1,12 +1,10 @@
 package org.jh.batchbridge.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 import java.util.Set;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.exception.ExternalApiException;
 import org.junit.jupiter.api.Test;
 
 class ClaudeBatchAdapterTest {
@@ -28,14 +26,14 @@ class ClaudeBatchAdapterTest {
     }
 
     @Test
-    void parseResults_throwsWhenNoValidResultIsParsed() {
+    void parseResults_returnsEmptyWhenNoValidResultIsParsed() {
         String jsonlBody = """
                 {"custom_id":"abc","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"ignored"}]}}}
                 {"custom_id":"999","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"ignored"}]}}}
                 """;
 
-        assertThatThrownBy(() -> adapter.parseResults(jsonlBody, Set.of(101L)))
-                .isInstanceOf(ExternalApiException.class)
-                .hasMessageContaining("No valid Claude prompt results parsed");
+        Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L));
+
+        assertThat(results).isEmpty();
     }
 }

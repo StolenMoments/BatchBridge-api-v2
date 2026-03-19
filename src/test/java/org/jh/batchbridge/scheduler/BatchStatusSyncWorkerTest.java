@@ -13,6 +13,7 @@ import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.domain.PromptResult;
+import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
@@ -73,6 +74,26 @@ class BatchStatusSyncWorkerTest {
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(batch.getPrompts().get(0).getResponseContent()).isEqualTo("done");
+        verify(repository).save(batch);
+    }
+
+    @Test
+    void marksPromptFailedWhenCompletedResultIsMissing() {
+        Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        BatchPrompt prompt = batch.getPrompts().get(0);
+        ReflectionTestUtils.setField(prompt, "id", 101L);
+        when(repository.findById(1L)).thenReturn(Optional.of(batch));
+        when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
+        when(adapter.fetchStatus(any(ExternalBatchId.class)))
+                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+        when(adapter.fetchResults(any(ExternalBatchId.class), any()))
+                .thenReturn(Map.of());
+
+        worker.syncOne(1L);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(prompt.getStatus()).isEqualTo(PromptStatus.FAILED);
+        assertThat(prompt.getErrorMessage()).isEqualTo("No result found for prompt");
         verify(repository).save(batch);
     }
 
