@@ -80,6 +80,8 @@ public class Batch {
         this.submittedAt = LocalDateTime.now();
     }
 
+    private static final String DEFAULT_PROMPT_ERROR_MESSAGE = "No result found for prompt";
+
     public void complete(java.util.Map<Long, PromptResult> results) {
         if (this.status != BatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
@@ -89,7 +91,7 @@ public class Batch {
             if (r != null && r.success()) {
                 p.complete(r.responseContent());
             } else {
-                p.fail(r != null ? r.errorMessage() : "결과 없음");
+                p.fail(r != null ? r.errorMessage() : DEFAULT_PROMPT_ERROR_MESSAGE);
             }
         });
         this.status = BatchStatus.COMPLETED;
@@ -107,6 +109,7 @@ public class Batch {
     }
 
     // Legacy method support (can be removed if Service is updated)
+    @Deprecated
     public void markInProgress() {
          // This is now redundant or can call submit(null) if externalBatchId is optional,
          // but submit requires string.
@@ -119,6 +122,7 @@ public class Batch {
     }
 
     // Legacy method support
+    @Deprecated
     public void complete(String result) {
         if (this.status != BatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
