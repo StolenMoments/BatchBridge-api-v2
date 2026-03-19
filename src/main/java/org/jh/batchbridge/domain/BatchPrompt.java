@@ -12,9 +12,17 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "batch_prompt")
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class BatchPrompt {
 
     @Id
@@ -37,6 +45,7 @@ public class BatchPrompt {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private PromptStatus status = PromptStatus.PENDING;
 
     @Lob
@@ -45,9 +54,6 @@ public class BatchPrompt {
     @Column(length = 500)
     private String errorMessage;
 
-    protected BatchPrompt() {
-    }
-
     public BatchPrompt(String label, String systemPrompt, String userPrompt) {
         this.label = label;
         this.systemPrompt = systemPrompt;
@@ -55,8 +61,20 @@ public class BatchPrompt {
         this.status = PromptStatus.PENDING;
     }
 
-    void assignBatch(Batch batch) {
+    public void assignBatch(Batch batch) {
         this.batch = batch;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public void setSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+    }
+
+    public void setUserPrompt(String userPrompt) {
+        this.userPrompt = userPrompt;
     }
 
     public void complete(String responseContent) {
@@ -69,37 +87,5 @@ public class BatchPrompt {
         this.responseContent = null;
         this.errorMessage = errorMessage;
         this.status = PromptStatus.FAILED;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Batch getBatch() {
-        return batch;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public String getSystemPrompt() {
-        return systemPrompt;
-    }
-
-    public String getUserPrompt() {
-        return userPrompt;
-    }
-
-    public PromptStatus getStatus() {
-        return status;
-    }
-
-    public String getResponseContent() {
-        return responseContent;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
     }
 }

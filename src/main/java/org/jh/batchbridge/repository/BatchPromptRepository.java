@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BatchPromptRepository extends JpaRepository<BatchPrompt, Long> {
     List<BatchPrompt> findAllByBatchId(Long batchId);
+    long countByBatchId(Long batchId);
 }
