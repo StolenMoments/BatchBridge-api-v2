@@ -13,10 +13,18 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "batch")
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Batch {
 
     @Id
@@ -31,6 +39,7 @@ public class Batch {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private BatchStatus status = BatchStatus.DRAFT;
 
     @Column(length = 100)
@@ -47,20 +56,23 @@ public class Batch {
     private LocalDateTime completedAt;
 
     @OneToMany(mappedBy = "batch", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<BatchPrompt> prompts = new ArrayList<>();
-
-    protected Batch() {
-    }
 
     public Batch(String label, String model) {
         this.label = label;
         this.model = model;
         this.status = BatchStatus.DRAFT;
+        this.prompts = new ArrayList<>();
     }
 
     public void addPrompt(BatchPrompt prompt) {
         prompts.add(prompt);
         prompt.assignBatch(this);
+    }
+
+    public int getPromptCount() {
+        return prompts.size();
     }
 
     public BatchPrompt getFirstPrompt() {
@@ -121,9 +133,7 @@ public class Batch {
         this.submittedAt = LocalDateTime.now();
     }
 
-    // Legacy method support
-    @Deprecated
-    public void complete(String result) {
+    public void completeFirstPrompt(String result) {
         if (this.status != BatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
         }
@@ -135,48 +145,10 @@ public class Batch {
         }
     }
 
-    public void failOnSubmission(String errorMessage) {
-        fail(errorMessage);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public BatchStatus getStatus() {
-        return status;
-    }
-
-    public String getExternalBatchId() {
-        return externalBatchId;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getSubmittedAt() {
-        return submittedAt;
-    }
-
-    public LocalDateTime getCompletedAt() {
-        return completedAt;
-    }
-
-    public List<BatchPrompt> getPrompts() {
-        return prompts;
+    // Legacy method support
+    @Deprecated
+    public void complete(String result) {
+        completeFirstPrompt(result);
     }
 
     public void setExternalBatchId(String externalBatchId) {

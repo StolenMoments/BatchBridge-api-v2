@@ -1,26 +1,20 @@
 package org.jh.batchbridge.scheduler;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
-import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
-import org.jh.batchbridge.dto.external.BatchStatusResult;
-import org.jh.batchbridge.dto.external.ExternalBatchId;
-import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class BatchStatusSyncSchedulerTest {
@@ -29,16 +23,13 @@ class BatchStatusSyncSchedulerTest {
     private BatchRepository repository;
 
     @Mock
-    private BatchApiClientFactory factory;
-
-    @Mock
-    private BatchApiPort adapter;
+    private BatchStatusSyncWorker worker;
 
     private BatchStatusSyncScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new BatchStatusSyncScheduler(repository, factory);
+        scheduler = new BatchStatusSyncScheduler(repository, worker);
     }
 
     @Test
@@ -47,49 +38,20 @@ class BatchStatusSyncSchedulerTest {
 
         scheduler.syncInProgressBatches();
 
-        verifyNoInteractions(factory);
+        verifyNoInteractions(worker);
     }
 
     @Test
-    void marksBatchCompletedAndSavesResultWhenExternalStatusIsCompleted() {
-        Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
-        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(batch));
-        when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
-        when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
-        when(adapter.fetchResult(any(ExternalBatchId.class))).thenReturn("done");
+    void delegatesEveryBatchToWorker() {
+        Batch first = new Batch("first", "model");
+        Batch second = new Batch("second", "model");
+        ReflectionTestUtils.setField(first, "id", 1L);
+        ReflectionTestUtils.setField(second, "id", 2L);
+        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(first, second));
 
         scheduler.syncInProgressBatches();
 
-        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-        assertThat(batch.getPrompts().get(0).getResponseContent()).isEqualTo("done");
-        verify(repository).save(batch);
-    }
-
-    @Test
-    void continuesAfterSingleBatchFailure() {
-        Batch failedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
-        Batch completedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-2");
-        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(failedTarget, completedTarget));
-        when(factory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(adapter);
-        when(adapter.fetchStatus(new ExternalBatchId("external-1")))
-                .thenThrow(new RuntimeException("temporary error"));
-        when(adapter.fetchStatus(new ExternalBatchId("external-2")))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.FAILED, "bad request"));
-
-        scheduler.syncInProgressBatches();
-
-        assertThat(failedTarget.getStatus()).isEqualTo(BatchStatus.IN_PROGRESS);
-        assertThat(completedTarget.getStatus()).isEqualTo(BatchStatus.FAILED);
-        verify(repository).save(completedTarget);
-        verify(repository, never()).save(failedTarget);
-    }
-
-    private Batch inProgressBatch(String model, String externalBatchId) {
-        Batch batch = new Batch("label", model);
-        batch.addPrompt(new BatchPrompt("prompt-1", "system", "user"));
-        batch.markInProgress();
-        batch.setExternalBatchId(externalBatchId);
-        return batch;
+        verify(worker, times(1)).syncOne(1L);
+        verify(worker, times(1)).syncOne(2L);
     }
 }

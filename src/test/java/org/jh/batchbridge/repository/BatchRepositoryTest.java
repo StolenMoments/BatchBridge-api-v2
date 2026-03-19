@@ -4,12 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
+@Transactional
 class BatchRepositoryTest {
 
     @Autowired
@@ -19,5 +23,25 @@ class BatchRepositoryTest {
     void findAllByStatusReturnsEmptyListWhenNoInProgressRequestsExist() {
         List<Batch> result = batchRepository.findAllByStatus(BatchStatus.IN_PROGRESS);
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findBatchSummariesReturnsAggregatedPromptCount() {
+        Batch draft = new Batch("draft", "claude-3-5-sonnet-20240620");
+        draft.addPrompt(new BatchPrompt("p1", null, "u1"));
+        draft.addPrompt(new BatchPrompt("p2", null, "u2"));
+
+        Batch inProgress = new Batch("in-progress", "claude-3-5-sonnet-20240620");
+        inProgress.addPrompt(new BatchPrompt("p3", null, "u3"));
+        inProgress.submit("ext-1");
+
+        batchRepository.save(draft);
+        batchRepository.save(inProgress);
+
+        var page = batchRepository.findBatchSummaries(BatchStatus.DRAFT, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().get(0).getLabel()).isEqualTo("draft");
+        assertThat(page.getContent().get(0).getPromptCount()).isEqualTo(2L);
     }
 }

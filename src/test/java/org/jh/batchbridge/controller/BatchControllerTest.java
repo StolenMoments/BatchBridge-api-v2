@@ -50,11 +50,10 @@ class BatchControllerTest {
 
     @Test
     void createBatch_Returns201() throws Exception {
-        BatchCreateRequest request = new BatchCreateRequest("test-label", "claude-3-5-sonnet-20240620", "system", "user");
-        BatchPromptResponse prompt = new BatchPromptResponse(1L, "test-label-prompt-1", "system", "user", PromptStatus.PENDING, null, null);
+        BatchCreateRequest request = new BatchCreateRequest("test-label", "claude-3-5-sonnet-20240620");
         BatchDetailResponse response = new BatchDetailResponse(
-                1L, "test-label", "claude-3-5-sonnet-20240620", BatchStatus.IN_PROGRESS,
-                List.of(prompt), null, LocalDateTime.now(), null
+                1L, "test-label", "claude-3-5-sonnet-20240620", BatchStatus.DRAFT,
+                0, null, null, LocalDateTime.now(), null, null, List.of()
         );
 
         when(batchService.createBatch(any(BatchCreateRequest.class))).thenReturn(response);
@@ -65,13 +64,14 @@ class BatchControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
-                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.promptCount").value(0));
     }
 
     @Test
     void getList_Returns200() throws Exception {
         BatchSummaryResponse summary = new BatchSummaryResponse(
-                1L, "label", "model", BatchStatus.COMPLETED, LocalDateTime.now(), LocalDateTime.now()
+                1L, "label", "model", BatchStatus.COMPLETED, 1, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
         );
         BatchListResponse response = new BatchListResponse(List.of(summary), 1L, 1, 0, 20);
 
@@ -120,7 +120,8 @@ class BatchControllerTest {
         BatchPromptResponse prompt = new BatchPromptResponse(1L, "label-prompt-1", "system", "user", PromptStatus.COMPLETED, "result", null);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "label", "model", BatchStatus.COMPLETED,
-                List.of(prompt), null, LocalDateTime.now(), LocalDateTime.now()
+                1, "ext-id", null, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(),
+                List.of(prompt)
         );
 
         when(batchService.getDetail(1L)).thenReturn(response);
@@ -137,7 +138,8 @@ class BatchControllerTest {
         BatchPromptResponse prompt = new BatchPromptResponse(1L, "label-prompt-1", "system", "user", PromptStatus.COMPLETED, "result", null);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "label", "model", BatchStatus.COMPLETED,
-                List.of(prompt), null, LocalDateTime.now(), LocalDateTime.now()
+                1, "ext-id", null, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(),
+                List.of(prompt)
         );
 
         when(batchService.syncStatus(1L)).thenReturn(response);
