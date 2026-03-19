@@ -3,9 +3,11 @@ package org.jh.batchbridge.service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -124,8 +126,8 @@ public class BatchService {
         BatchStatusResult statusResult = adapter.fetchStatus(externalBatchId);
 
         if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.COMPLETED) {
-            String result = adapter.fetchResult(externalBatchId);
-            batch.completeFirstPrompt(result);
+            Map<Long, PromptResult> results = adapter.fetchResults(externalBatchId, batch.getPrompts());
+            batch.complete(results);
         } else if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.FAILED) {
             String errorMessage = (statusResult.errorMessage() == null || statusResult.errorMessage().isBlank())
                     ? FALLBACK_EXTERNAL_ERROR_MESSAGE

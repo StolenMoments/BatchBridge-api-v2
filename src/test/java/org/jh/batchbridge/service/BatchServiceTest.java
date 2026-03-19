@@ -15,6 +15,7 @@ import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchListResponse;
@@ -185,6 +186,27 @@ class BatchServiceTest {
         assertThat(response.status()).isEqualTo(BatchStatus.FAILED);
         assertThat(response.errorMessage()).contains("External batch id is missing for batch: 11");
         verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
+    void syncStatus_WhenCompleted_FetchesResultsAndCompletesBatch() {
+        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        BatchPrompt prompt = new BatchPrompt("prompt-1", "system", "user");
+        ReflectionTestUtils.setField(prompt, "id", 101L);
+        batch.addPrompt(prompt);
+        batch.submit("ext-1");
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.fetchStatus(any())).thenReturn(new org.jh.batchbridge.dto.external.BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+        when(batchApiPort.fetchResults(any(), any())).thenReturn(java.util.Map.of(101L, new PromptResult(true, "result text", null)));
+
+        batchService.syncStatus(1L);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(prompt.getStatus()).isEqualTo(org.jh.batchbridge.domain.PromptStatus.COMPLETED);
+        assertThat(prompt.getResponseContent()).isEqualTo("result text");
     }
 
     @Test

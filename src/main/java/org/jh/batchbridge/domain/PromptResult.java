@@ -1,4 +1,10 @@
 package org.jh.batchbridge.domain;
 
-public record PromptResult(boolean success, String responseContent, String errorMessage) {
+import org.springframework.lang.Nullable;
+
+public record PromptResult(
+    boolean success,
+    @Nullable String responseContent,
+    @Nullable String errorMessage
+) {
 }

@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -94,7 +95,7 @@ public class Batch {
 
     private static final String DEFAULT_PROMPT_ERROR_MESSAGE = "No result found for prompt";
 
-    public void complete(java.util.Map<Long, PromptResult> results) {
+    public void complete(Map<Long, PromptResult> results) {
         if (this.status != BatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
         }
@@ -118,37 +119,6 @@ public class Batch {
         for (BatchPrompt prompt : prompts) {
             prompt.fail(errorMessage);
         }
-    }
-
-    // Legacy method support (can be removed if Service is updated)
-    @Deprecated
-    public void markInProgress() {
-         // This is now redundant or can call submit(null) if externalBatchId is optional,
-         // but submit requires string.
-         // We will leave this for now or remove it if we update Service.
-         if (this.status != BatchStatus.DRAFT) {
-            throw new IllegalStateException("Only DRAFT batches can be moved to IN_PROGRESS.");
-        }
-        this.status = BatchStatus.IN_PROGRESS;
-        this.submittedAt = LocalDateTime.now();
-    }
-
-    public void completeFirstPrompt(String result) {
-        if (this.status != BatchStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Batch must be IN_PROGRESS to complete.");
-        }
-        this.errorMessage = null;
-        this.status = BatchStatus.COMPLETED;
-        this.completedAt = LocalDateTime.now();
-        if (!prompts.isEmpty()) {
-            prompts.get(0).complete(result);
-        }
-    }
-
-    // Legacy method support
-    @Deprecated
-    public void complete(String result) {
-        completeFirstPrompt(result);
     }
 
     public void setExternalBatchId(String externalBatchId) {

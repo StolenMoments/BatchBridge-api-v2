@@ -4,16 +4,23 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import org.jh.batchbridge.domain.BatchPrompt;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.claude.ClaudeBatchResponse;
 import org.jh.batchbridge.exception.ExternalApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -22,6 +29,7 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class ClaudeBatchAdapter implements BatchApiPort {
 
+    private static final Logger log = LoggerFactory.getLogger(ClaudeBatchAdapter.class);
     private static final String MODEL_PREFIX = "claude-";
     private static final String PROCESSING_STATUS_ENDED = "ended";
     private static final String RESULT_TYPE_SUCCEEDED = "succeeded";
@@ -93,18 +101,24 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     }
 
     @Override
-    public String fetchResult(ExternalBatchId externalBatchId) {
+    public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
         try {
             String jsonlBody = restClient.get()
                     .uri("/v1/messages/batches/{id}/results", externalBatchId.value())
                     .retrieve()
                     .body(String.class);
             if (jsonlBody == null || jsonlBody.isBlank()) {
-                return "";
+                return Map.of();
             }
-            return extractSucceededText(jsonlBody);
+            Set<Long> expectedPromptIds = prompts == null
+                    ? Set.of()
+                    : prompts.stream()
+                            .map(BatchPrompt::getId)
+                            .filter(Objects::nonNull)
+                            .collect(java.util.stream.Collectors.toSet());
+            return parseResults(jsonlBody, expectedPromptIds);
         } catch (RestClientException e) {
-            throw new ExternalApiException("Failed to fetch Claude batch result: " + externalBatchId.value(), e);
+            throw new ExternalApiException("Failed to fetch Claude batch results: " + externalBatchId.value(), e);
         }
     }
 
@@ -152,33 +166,89 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         return BatchStatus.IN_PROGRESS;
     }
 
-    private String extractSucceededText(String jsonlBody) {
-        List<String> texts = new ArrayList<>();
+    Map<Long, PromptResult> parseResults(String jsonlBody, Set<Long> expectedPromptIds) {
+        Map<Long, PromptResult> results = new HashMap<>();
         String[] lines = jsonlBody.split("\\R");
+        int skippedLines = 0;
+        int lineNumber = 0;
         for (String line : lines) {
+            lineNumber++;
             if (line.isBlank()) {
                 continue;
             }
+            JsonNode lineNode;
             try {
-                JsonNode lineNode = objectMapper.readTree(line);
-                JsonNode resultNode = lineNode.path("result");
-                if (!RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(resultNode.path("type").asText())) {
-                    continue;
-                }
-                JsonNode contentNode = resultNode.path("message").path("content");
-                if (!contentNode.isArray()) {
-                    continue;
-                }
-                for (JsonNode contentItem : contentNode) {
-                    if ("text".equalsIgnoreCase(contentItem.path("type").asText())) {
-                        String text = contentItem.path("text").asText(null);
-                        if (text != null && !text.isBlank()) {
-                            texts.add(text);
-                        }
-                    }
-                }
+                lineNode = objectMapper.readTree(line);
             } catch (IOException e) {
-                throw new ExternalApiException("Failed to parse Claude results jsonl", e);
+                skippedLines++;
+                log.warn("Skipping invalid Claude result line [line={}]", lineNumber, e);
+                continue;
+            }
+
+            String customId = lineNode.path("custom_id").asText(null);
+            if (customId == null || customId.isBlank()) {
+                skippedLines++;
+                log.warn("Skipping Claude result line without custom_id [line={}]", lineNumber);
+                continue;
+            }
+
+            final Long promptId;
+            try {
+                promptId = Long.valueOf(customId);
+            } catch (NumberFormatException e) {
+                skippedLines++;
+                log.warn("Skipping Claude result line with non-numeric custom_id [line={}, customId={}]", lineNumber, customId);
+                continue;
+            }
+
+            if (!expectedPromptIds.isEmpty() && !expectedPromptIds.contains(promptId)) {
+                skippedLines++;
+                log.warn("Skipping Claude result for unknown prompt id [promptId={}]", promptId);
+                continue;
+            }
+
+            JsonNode resultNode = lineNode.path("result");
+            String type = resultNode.path("type").asText();
+
+            PromptResult promptResult;
+            if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
+                String text = extractText(resultNode.path("message").path("content"));
+                promptResult = new PromptResult(true, text, null);
+            } else {
+                String errorMsg = resultNode.path("error").path("message").asText("Unknown error");
+                promptResult = new PromptResult(false, null, errorMsg);
+            }
+
+            PromptResult previous = results.put(promptId, promptResult);
+            if (previous != null) {
+                log.warn("Duplicate Claude result detected for prompt id [promptId={}]", promptId);
+            }
+        }
+
+        if (skippedLines > 0) {
+            log.warn("Skipped {} invalid/unmatched Claude result line(s)", skippedLines);
+        }
+        if (!expectedPromptIds.isEmpty() && results.isEmpty()) {
+            throw new ExternalApiException("No valid Claude prompt results parsed from result payload");
+        }
+        if (!expectedPromptIds.isEmpty() && results.size() < expectedPromptIds.size()) {
+            log.warn("Claude results are missing prompts [expected={}, parsed={}]", expectedPromptIds.size(), results.size());
+        }
+
+        return results;
+    }
+
+    private String extractText(JsonNode contentNode) {
+        if (!contentNode.isArray()) {
+            return "";
+        }
+        List<String> texts = new ArrayList<>();
+        for (JsonNode contentItem : contentNode) {
+            if ("text".equalsIgnoreCase(contentItem.path("type").asText())) {
+                String text = contentItem.path("text").asText(null);
+                if (text != null && !text.isBlank()) {
+                    texts.add(text);
+                }
             }
         }
         return String.join("\n", texts);

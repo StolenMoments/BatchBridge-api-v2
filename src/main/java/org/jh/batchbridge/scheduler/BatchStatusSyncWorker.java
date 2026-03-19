@@ -3,6 +3,7 @@ package org.jh.batchbridge.scheduler;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
@@ -11,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 @Component
 public class BatchStatusSyncWorker {
@@ -51,8 +54,8 @@ public class BatchStatusSyncWorker {
         BatchStatusResult result = adapter.fetchStatus(id);
 
         if (result.status() == org.jh.batchbridge.dto.external.BatchStatus.COMPLETED) {
-            String content = adapter.fetchResult(id);
-            batch.completeFirstPrompt(content);
+            Map<Long, PromptResult> results = adapter.fetchResults(id, batch.getPrompts());
+            batch.complete(results);
             repository.save(batch);
             log.info("Batch completed [id={}]", batch.getId());
             return;

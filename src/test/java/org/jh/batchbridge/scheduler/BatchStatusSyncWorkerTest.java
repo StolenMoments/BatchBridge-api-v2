@@ -6,11 +6,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
 import java.util.Optional;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
@@ -58,11 +60,14 @@ class BatchStatusSyncWorkerTest {
     @Test
     void marksBatchCompletedWhenExternalStatusIsCompleted() {
         Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        BatchPrompt prompt = batch.getPrompts().get(0);
+        ReflectionTestUtils.setField(prompt, "id", 101L);
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
                 .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
-        when(adapter.fetchResult(any(ExternalBatchId.class))).thenReturn("done");
+        when(adapter.fetchResults(any(ExternalBatchId.class), any()))
+                .thenReturn(Map.of(101L, new PromptResult(true, "done", null)));
 
         worker.syncOne(1L);
 

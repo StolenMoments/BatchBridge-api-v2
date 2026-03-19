@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
+import org.jh.batchbridge.domain.BatchPrompt;
+import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
@@ -52,8 +55,8 @@ class BatchApiClientFactoryTest {
         }
 
         @Override
-        public String fetchResult(ExternalBatchId externalBatchId) {
-            return "";
+        public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
+            return Map.of();
         }
     }
 }
