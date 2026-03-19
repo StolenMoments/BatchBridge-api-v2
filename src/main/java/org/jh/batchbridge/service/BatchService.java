@@ -4,7 +4,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.jh.batchbridge.adapter.BatchApiPort;
-import org.jh.batchbridge.domain.BatchRequest;
+import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
@@ -12,11 +13,12 @@ import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
+import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.ExternalApiException;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
-import org.jh.batchbridge.repository.BatchRequestRepository;
+import org.jh.batchbridge.repository.BatchRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,40 +32,37 @@ public class BatchService {
     private static final DateTimeFormatter AUTO_LABEL_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     private static final String FALLBACK_EXTERNAL_ERROR_MESSAGE = "External batch processing failed";
 
-    private final BatchRequestRepository batchRequestRepository;
+    private final BatchRepository batchRepository;
     private final BatchApiClientFactory batchApiClientFactory;
 
-    public BatchService(BatchRequestRepository batchRequestRepository, BatchApiClientFactory batchApiClientFactory) {
-        this.batchRequestRepository = batchRequestRepository;
+    public BatchService(BatchRepository batchRepository, BatchApiClientFactory batchApiClientFactory) {
+        this.batchRepository = batchRepository;
         this.batchApiClientFactory = batchApiClientFactory;
     }
 
+    @Transactional
     public BatchDetailResponse createBatch(BatchCreateRequest request) {
         String label = resolveLabel(request.label());
 
-        BatchRequest batchRequest = new BatchRequest(
-                label,
-                request.model(),
-                request.systemPrompt(),
-                request.userPrompt()
-        );
-        batchRequest = saveBatch(batchRequest);
+        Batch batch = new Batch(label, request.model());
+        batch.addPrompt(new BatchPrompt(label + "-prompt-1", request.systemPrompt(), request.userPrompt()));
+        batch = batchRepository.save(batch);
 
         try {
-            BatchApiPort adapter = batchApiClientFactory.getAdapter(batchRequest.getModel());
+            BatchApiPort adapter = batchApiClientFactory.getAdapter(batch.getModel());
+            BatchPrompt prompt = requireFirstPrompt(batch);
             ExternalBatchId externalBatchId = adapter.submitBatch(new BatchSubmitRequest(
-                    String.valueOf(batchRequest.getId()),
-                    batchRequest.getModel(),
-                    batchRequest.getSystemPrompt(),
-                    batchRequest.getUserPrompt()
+                    String.valueOf(batch.getId()),
+                    batch.getModel(),
+                    prompt.getSystemPrompt(),
+                    prompt.getUserPrompt()
             ));
 
-            batchRequest.setExternalBatchId(externalBatchId.value());
-            batchRequest.markInProgress();
-            return toDetailResponse(saveBatch(batchRequest));
+            batch.setExternalBatchId(externalBatchId.value());
+            batch.markInProgress();
+            return toDetailResponse(batch);
         } catch (Exception e) {
-            batchRequest.fail("Failed to submit batch to external API: " + e.getMessage());
-            saveBatch(batchRequest);
+            batch.failOnSubmission("Failed to submit batch to external API: " + e.getMessage());
             throw e;
         }
     }
@@ -71,9 +70,9 @@ public class BatchService {
     @Transactional(readOnly = true)
     public BatchListResponse getList(BatchStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<BatchRequest> batchPage = status == null
-                ? batchRequestRepository.findAll(pageable)
-                : batchRequestRepository.findAllByStatus(status, pageable);
+        Page<Batch> batchPage = status == null
+                ? batchRepository.findAll(pageable)
+                : batchRepository.findAllByStatus(status, pageable);
 
         List<BatchSummaryResponse> content = batchPage.getContent().stream()
                 .map(this::toSummaryResponse)
@@ -90,63 +89,38 @@ public class BatchService {
 
     @Transactional(readOnly = true)
     public BatchDetailResponse getDetail(Long id) {
-        BatchRequest batchRequest = batchRequestRepository.findById(id)
+        Batch batch = batchRepository.findById(id)
                 .orElseThrow(() -> new BatchNotFoundException(id));
-        return toDetailResponse(batchRequest);
+        return toDetailResponse(batch);
     }
 
+    @Transactional
     public BatchDetailResponse syncStatus(Long id) {
-        BatchRequest batchRequest = batchRequestRepository.findById(id)
+        Batch batch = batchRepository.findById(id)
                 .orElseThrow(() -> new BatchNotFoundException(id));
 
-        if (batchRequest.getStatus() == BatchStatus.COMPLETED || batchRequest.getStatus() == BatchStatus.FAILED) {
-            return toDetailResponse(batchRequest);
+        if (batch.getStatus() != BatchStatus.IN_PROGRESS) {
+            return toDetailResponse(batch);
         }
-        if (batchRequest.getStatus() != BatchStatus.IN_PROGRESS) {
-            return toDetailResponse(batchRequest);
-        }
-        if (batchRequest.getExternalBatchId() == null || batchRequest.getExternalBatchId().isBlank()) {
+        if (batch.getExternalBatchId() == null || batch.getExternalBatchId().isBlank()) {
             throw new ExternalApiException("External batch id is missing for batch: " + id);
         }
 
-        BatchApiPort adapter = batchApiClientFactory.getAdapter(batchRequest.getModel());
-        ExternalBatchId externalBatchId = new ExternalBatchId(batchRequest.getExternalBatchId());
-        
-        // 외부 API 호출은 트랜잭션 밖에서 수행
+        BatchApiPort adapter = batchApiClientFactory.getAdapter(batch.getModel());
+        ExternalBatchId externalBatchId = new ExternalBatchId(batch.getExternalBatchId());
         BatchStatusResult statusResult = adapter.fetchStatus(externalBatchId);
 
         if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.COMPLETED) {
             String result = adapter.fetchResult(externalBatchId);
-            updateToCompleted(id, result);
+            batch.complete(result);
         } else if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.FAILED) {
             String errorMessage = (statusResult.errorMessage() == null || statusResult.errorMessage().isBlank())
                     ? FALLBACK_EXTERNAL_ERROR_MESSAGE
                     : statusResult.errorMessage();
-            updateToFailed(id, errorMessage);
+            batch.fail(errorMessage);
         }
 
-        return getDetail(id);
-    }
-
-    @Transactional
-    public BatchRequest saveBatch(BatchRequest batchRequest) {
-        return batchRequestRepository.save(batchRequest);
-    }
-
-    @Transactional
-    public void updateToCompleted(Long id, String result) {
-        BatchRequest batchRequest = batchRequestRepository.findById(id)
-                .orElseThrow(() -> new BatchNotFoundException(id));
-        batchRequest.complete(result);
-        batchRequestRepository.save(batchRequest);
-    }
-
-    @Transactional
-    public void updateToFailed(Long id, String errorMessage) {
-        BatchRequest batchRequest = batchRequestRepository.findById(id)
-                .orElseThrow(() -> new BatchNotFoundException(id));
-        batchRequest.fail(errorMessage);
-        batchRequestRepository.save(batchRequest);
+        return toDetailResponse(batch);
     }
 
     private String resolveLabel(String label) {
@@ -156,29 +130,39 @@ public class BatchService {
         return "batch-" + AUTO_LABEL_FORMATTER.format(LocalDateTime.now());
     }
 
-    private BatchSummaryResponse toSummaryResponse(BatchRequest batchRequest) {
+    private BatchSummaryResponse toSummaryResponse(Batch batch) {
         return new BatchSummaryResponse(
-                batchRequest.getId(),
-                batchRequest.getLabel(),
-                batchRequest.getModel(),
-                batchRequest.getStatus(),
-                batchRequest.getCreatedAt(),
-                batchRequest.getCompletedAt()
+                batch.getId(),
+                batch.getLabel(),
+                batch.getModel(),
+                batch.getStatus(),
+                batch.getCreatedAt(),
+                batch.getCompletedAt()
         );
     }
 
-    private BatchDetailResponse toDetailResponse(BatchRequest batchRequest) {
+    private BatchDetailResponse toDetailResponse(Batch batch) {
+        List<BatchPromptResponse> promptResponses = batch.getPrompts().stream()
+                .map(BatchPromptResponse::from)
+                .toList();
+
         return new BatchDetailResponse(
-                batchRequest.getId(),
-                batchRequest.getLabel(),
-                batchRequest.getModel(),
-                batchRequest.getStatus(),
-                batchRequest.getSystemPrompt(),
-                batchRequest.getUserPrompt(),
-                batchRequest.getResponseContent(),
-                batchRequest.getErrorMessage(),
-                batchRequest.getCreatedAt(),
-                batchRequest.getCompletedAt()
+                batch.getId(),
+                batch.getLabel(),
+                batch.getModel(),
+                batch.getStatus(),
+                promptResponses,
+                batch.getErrorMessage(),
+                batch.getCreatedAt(),
+                batch.getCompletedAt()
         );
+    }
+
+    private BatchPrompt requireFirstPrompt(Batch batch) {
+        BatchPrompt prompt = batch.getFirstPrompt();
+        if (prompt == null) {
+            throw new IllegalStateException("Batch prompt is missing for batch: " + batch.getId());
+        }
+        return prompt;
     }
 }

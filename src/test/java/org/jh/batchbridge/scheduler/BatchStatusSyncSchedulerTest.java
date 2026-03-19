@@ -9,12 +9,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import org.jh.batchbridge.adapter.BatchApiPort;
-import org.jh.batchbridge.domain.BatchRequest;
+import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
-import org.jh.batchbridge.repository.BatchRequestRepository;
+import org.jh.batchbridge.repository.BatchRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BatchStatusSyncSchedulerTest {
 
     @Mock
-    private BatchRequestRepository repository;
+    private BatchRepository repository;
 
     @Mock
     private BatchApiClientFactory factory;
@@ -51,7 +52,7 @@ class BatchStatusSyncSchedulerTest {
 
     @Test
     void marksBatchCompletedAndSavesResultWhenExternalStatusIsCompleted() {
-        BatchRequest batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
         when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
@@ -61,14 +62,14 @@ class BatchStatusSyncSchedulerTest {
         scheduler.syncInProgressBatches();
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-        assertThat(batch.getResponseContent()).isEqualTo("done");
+        assertThat(batch.getPrompts().get(0).getResponseContent()).isEqualTo("done");
         verify(repository).save(batch);
     }
 
     @Test
     void continuesAfterSingleBatchFailure() {
-        BatchRequest failedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
-        BatchRequest completedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-2");
+        Batch failedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        Batch completedTarget = inProgressBatch("claude-3-5-sonnet-20240620", "external-2");
         when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(failedTarget, completedTarget));
         when(factory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(adapter);
         when(adapter.fetchStatus(new ExternalBatchId("external-1")))
@@ -84,8 +85,9 @@ class BatchStatusSyncSchedulerTest {
         verify(repository, never()).save(failedTarget);
     }
 
-    private BatchRequest inProgressBatch(String model, String externalBatchId) {
-        BatchRequest batch = new BatchRequest("label", model, "system", "user");
+    private Batch inProgressBatch(String model, String externalBatchId) {
+        Batch batch = new Batch("label", model);
+        batch.addPrompt(new BatchPrompt("prompt-1", "system", "user"));
         batch.markInProgress();
         batch.setExternalBatchId(externalBatchId);
         return batch;

@@ -17,7 +17,9 @@ import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
+import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
+import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
 import org.jh.batchbridge.service.BatchService;
 import org.junit.jupiter.api.Test;
@@ -49,9 +51,10 @@ class BatchControllerTest {
     @Test
     void createBatch_Returns201() throws Exception {
         BatchCreateRequest request = new BatchCreateRequest("test-label", "claude-3-5-sonnet-20240620", "system", "user");
+        BatchPromptResponse prompt = new BatchPromptResponse(1L, "test-label-prompt-1", "system", "user", PromptStatus.PENDING, null, null);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "test-label", "claude-3-5-sonnet-20240620", BatchStatus.IN_PROGRESS,
-                "system", "user", null, null, LocalDateTime.now(), null
+                List.of(prompt), null, LocalDateTime.now(), null
         );
 
         when(batchService.createBatch(any(BatchCreateRequest.class))).thenReturn(response);
@@ -114,9 +117,10 @@ class BatchControllerTest {
 
     @Test
     void getDetail_Returns200() throws Exception {
+        BatchPromptResponse prompt = new BatchPromptResponse(1L, "label-prompt-1", "system", "user", PromptStatus.COMPLETED, "result", null);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "label", "model", BatchStatus.COMPLETED,
-                "system", "user", "result", null, LocalDateTime.now(), LocalDateTime.now()
+                List.of(prompt), null, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(batchService.getDetail(1L)).thenReturn(response);
@@ -125,14 +129,15 @@ class BatchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
-                .andExpect(jsonPath("$.data.responseContent").value("result"));
+                .andExpect(jsonPath("$.data.prompts[0].responseContent").value("result"));
     }
 
     @Test
     void syncStatus_Returns200() throws Exception {
+        BatchPromptResponse prompt = new BatchPromptResponse(1L, "label-prompt-1", "system", "user", PromptStatus.COMPLETED, "result", null);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "label", "model", BatchStatus.COMPLETED,
-                "system", "user", "result", null, LocalDateTime.now(), LocalDateTime.now()
+                List.of(prompt), null, LocalDateTime.now(), LocalDateTime.now()
         );
 
         when(batchService.syncStatus(1L)).thenReturn(response);

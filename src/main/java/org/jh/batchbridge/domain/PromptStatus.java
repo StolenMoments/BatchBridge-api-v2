@@ -1,8 +1,7 @@
 package org.jh.batchbridge.domain;
 
-public enum BatchStatus {
-    DRAFT,
-    IN_PROGRESS,
+public enum PromptStatus {
+    PENDING,
     COMPLETED,
     FAILED
 }

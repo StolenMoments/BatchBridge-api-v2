@@ -3,12 +3,12 @@ package org.jh.batchbridge.scheduler;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.jh.batchbridge.adapter.BatchApiPort;
-import org.jh.batchbridge.domain.BatchRequest;
+import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
-import org.jh.batchbridge.repository.BatchRequestRepository;
+import org.jh.batchbridge.repository.BatchRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,24 +21,24 @@ public class BatchStatusSyncScheduler {
     private static final Logger log = LoggerFactory.getLogger(BatchStatusSyncScheduler.class);
     private static final String FALLBACK_EXTERNAL_ERROR_MESSAGE = "External batch processing failed";
 
-    private final BatchRequestRepository repository;
+    private final BatchRepository repository;
     private final BatchApiClientFactory factory;
 
-    public BatchStatusSyncScheduler(BatchRequestRepository repository, BatchApiClientFactory factory) {
+    public BatchStatusSyncScheduler(BatchRepository repository, BatchApiClientFactory factory) {
         this.repository = repository;
         this.factory = factory;
     }
 
     @Scheduled(fixedDelay = 2, timeUnit = TimeUnit.MINUTES)
     public void syncInProgressBatches() {
-        List<BatchRequest> targets = repository.findAllByStatus(BatchStatus.IN_PROGRESS);
+        List<Batch> targets = repository.findAllByStatus(BatchStatus.IN_PROGRESS);
         if (targets.isEmpty()) {
             log.info("Batch sync skipped: no IN_PROGRESS batches");
             return;
         }
 
         log.info("Batch sync started: {} IN_PROGRESS batches", targets.size());
-        for (BatchRequest batch : targets) {
+        for (Batch batch : targets) {
             try {
                 syncOne(batch);
             } catch (Exception e) {
@@ -49,7 +49,7 @@ public class BatchStatusSyncScheduler {
     }
 
     @Transactional
-    public void syncOne(BatchRequest batch) {
+    public void syncOne(Batch batch) {
         String externalBatchId = batch.getExternalBatchId();
         if (externalBatchId == null || externalBatchId.isBlank()) {
             throw new IllegalStateException("External batch id is missing for batch: " + batch.getId());

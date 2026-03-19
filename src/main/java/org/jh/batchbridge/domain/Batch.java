@@ -1,5 +1,6 @@
 package org.jh.batchbridge.domain;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,42 +8,33 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "batch_request")
-public class BatchRequest {
+@Table(name = "batch")
+public class Batch {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 100, nullable = false)
+    @Column(nullable = false, length = 100)
     private String label;
 
-    @Column(length = 50, nullable = false)
+    @Column(nullable = false, length = 50)
     private String model;
-
-    @Lob
-    @Column(nullable = false)
-    private String systemPrompt;
-
-    @Lob
-    @Column(nullable = false)
-    private String userPrompt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private BatchStatus status = BatchStatus.PENDING;
+    private BatchStatus status = BatchStatus.DRAFT;
 
     @Column(length = 100)
     private String externalBatchId;
-
-    @Lob
-    private String responseContent;
 
     @Column(length = 500)
     private String errorMessage;
@@ -51,46 +43,71 @@ public class BatchRequest {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    private LocalDateTime submittedAt;
     private LocalDateTime completedAt;
 
-    protected BatchRequest() {
+    @OneToMany(mappedBy = "batch", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BatchPrompt> prompts = new ArrayList<>();
+
+    protected Batch() {
     }
 
-    public BatchRequest(String label, String model, String systemPrompt, String userPrompt) {
+    public Batch(String label, String model) {
         this.label = label;
         this.model = model;
-        this.systemPrompt = systemPrompt;
-        this.userPrompt = userPrompt;
-        this.status = BatchStatus.PENDING;
+        this.status = BatchStatus.DRAFT;
     }
 
-    public void complete(String content) {
+    public void addPrompt(BatchPrompt prompt) {
+        prompts.add(prompt);
+        prompt.assignBatch(this);
+    }
+
+    public BatchPrompt getFirstPrompt() {
+        return prompts.isEmpty() ? null : prompts.get(0);
+    }
+
+    public void markInProgress() {
+        if (this.status != BatchStatus.DRAFT) {
+            throw new IllegalStateException("Only DRAFT batches can be moved to IN_PROGRESS.");
+        }
+        this.status = BatchStatus.IN_PROGRESS;
+        this.submittedAt = LocalDateTime.now();
+    }
+
+    public void complete(String result) {
         validateTransitionFromInProgress();
-        this.responseContent = content;
         this.errorMessage = null;
         this.status = BatchStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
+        if (!prompts.isEmpty()) {
+            prompts.get(0).complete(result);
+        }
     }
 
     public void fail(String errorMessage) {
         validateTransitionFromInProgress();
-        this.responseContent = null;
         this.errorMessage = errorMessage;
         this.status = BatchStatus.FAILED;
         this.completedAt = LocalDateTime.now();
+        for (BatchPrompt prompt : prompts) {
+            prompt.fail(errorMessage);
+        }
+    }
+
+    public void failOnSubmission(String errorMessage) {
+        this.errorMessage = errorMessage;
+        this.status = BatchStatus.FAILED;
+        this.completedAt = LocalDateTime.now();
+        for (BatchPrompt prompt : prompts) {
+            prompt.fail(errorMessage);
+        }
     }
 
     private void validateTransitionFromInProgress() {
         if (this.status != BatchStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Batch request must be IN_PROGRESS to complete or fail.");
+            throw new IllegalStateException("Batch must be IN_PROGRESS to complete or fail.");
         }
-    }
-
-    public void markInProgress() {
-        if (this.status != BatchStatus.PENDING) {
-            throw new IllegalStateException("Only PENDING requests can be moved to IN_PROGRESS.");
-        }
-        this.status = BatchStatus.IN_PROGRESS;
     }
 
     public Long getId() {
@@ -105,24 +122,12 @@ public class BatchRequest {
         return model;
     }
 
-    public String getSystemPrompt() {
-        return systemPrompt;
-    }
-
-    public String getUserPrompt() {
-        return userPrompt;
-    }
-
     public BatchStatus getStatus() {
         return status;
     }
 
     public String getExternalBatchId() {
         return externalBatchId;
-    }
-
-    public String getResponseContent() {
-        return responseContent;
     }
 
     public String getErrorMessage() {
@@ -133,8 +138,16 @@ public class BatchRequest {
         return createdAt;
     }
 
+    public LocalDateTime getSubmittedAt() {
+        return submittedAt;
+    }
+
     public LocalDateTime getCompletedAt() {
         return completedAt;
+    }
+
+    public List<BatchPrompt> getPrompts() {
+        return prompts;
     }
 
     public void setExternalBatchId(String externalBatchId) {

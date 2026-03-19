@@ -1,15 +1,15 @@
 package org.jh.batchbridge.repository;
 
 import java.util.List;
-import org.jh.batchbridge.domain.BatchRequest;
+import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface BatchRequestRepository extends JpaRepository<BatchRequest, Long> {
+public interface BatchRepository extends JpaRepository<Batch, Long> {
 
-    List<BatchRequest> findAllByStatus(BatchStatus status);
+    List<Batch> findAllByStatus(BatchStatus status);
 
-    Page<BatchRequest> findAllByStatus(BatchStatus status, Pageable pageable);
+    Page<Batch> findAllByStatus(BatchStatus status, Pageable pageable);
 }
