@@ -33,7 +33,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
-                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.code").value("BATCH_RESULT_NOT_FOUND"))
                 .andExpect(jsonPath("$.error.message").value("Batch result not found: 1"));
     }
 
