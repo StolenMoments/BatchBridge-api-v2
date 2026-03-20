@@ -41,7 +41,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
 
     public ClaudeBatchAdapter(
             @Value("${batch-bridge.api-keys.claude}") String apiKey,
-            @Value("${batch-bridge.claude.default-max-tokens:1024}") int defaultMaxTokens
+            @Value("${batch-bridge.claude.default-max-tokens:100000}") int defaultMaxTokens
     ) {
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.anthropic.com")
