@@ -10,6 +10,12 @@ spring:
     show-sql: false
 
 batch-bridge:
+  cors:
+    allowed-origins: http://localhost:5173
+  swagger:
+    contact:
+      name: test
+      email: test@example.com
   api-keys:
     claude: test
     grok: test
