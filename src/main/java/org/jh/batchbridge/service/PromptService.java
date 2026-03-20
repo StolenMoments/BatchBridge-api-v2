@@ -33,27 +33,26 @@ public class PromptService {
         }
 
         BatchPrompt prompt = BatchPrompt.builder()
-                .batch(batch)
-                .label(resolveLabel(request.label(), batchId))
+                .label(resolveLabel(request.label(), batch))
                 .systemPrompt(request.systemPrompt())
                 .userPrompt(request.userPrompt())
                 .status(PromptStatus.PENDING)
                 .build();
+
+        batch.addPrompt(prompt);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
 
     @Transactional
     public BatchPromptResponse updatePrompt(Long batchId, Long promptId, PromptUpdateRequest request) {
-        Batch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new BatchNotFoundException(batchId));
+        BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
+                .orElseThrow(() -> new PromptNotFoundException(promptId));
 
+        Batch batch = prompt.getBatch();
         if (!batch.isEditable()) {
             throw new BatchNotEditableException("Batch is not editable");
         }
-
-        BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
-                .orElseThrow(() -> new PromptNotFoundException(promptId));
 
         if (request.label() != null) prompt.setLabel(request.label());
         if (request.systemPrompt() != null) prompt.setSystemPrompt(request.systemPrompt());
@@ -64,24 +63,21 @@ public class PromptService {
 
     @Transactional
     public void deletePrompt(Long batchId, Long promptId) {
-        Batch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new BatchNotFoundException(batchId));
-
-        if (!batch.isEditable()) {
-            throw new BatchNotEditableException("Batch is not editable");
-        }
-
         BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
                 .orElseThrow(() -> new PromptNotFoundException(promptId));
+
+        if (!prompt.getBatch().isEditable()) {
+            throw new BatchNotEditableException("Batch is not editable");
+        }
 
         promptRepository.delete(prompt);
     }
 
-    private String resolveLabel(String label, Long batchId) {
+    private String resolveLabel(String label, Batch batch) {
         if (label != null && !label.isBlank()) {
             return label;
         }
-        long count = promptRepository.countByBatchId(batchId);
+        int count = batch.getPromptCount();
         return "프롬프트 " + (count + 1);
     }
 }
