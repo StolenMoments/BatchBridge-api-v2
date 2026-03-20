@@ -11,6 +11,12 @@ spring:
       ddl-auto: update
     show-sql: true
 batch-bridge:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  swagger:
+    contact:
+      name: Batch Bridge Support
+      email: support@example.com
   supported-models:
     - id: claude-3-5-sonnet-20240620
       label: Claude 3.5 Sonnet
