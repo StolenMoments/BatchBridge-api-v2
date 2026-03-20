@@ -33,13 +33,12 @@ public class PromptService {
         }
 
         BatchPrompt prompt = BatchPrompt.builder()
-                .label(resolveLabel(request.label(), batch))
+                .batch(batch)
+                .label(resolveLabel(request.label(), batchId))
                 .systemPrompt(request.systemPrompt())
                 .userPrompt(request.userPrompt())
                 .status(PromptStatus.PENDING)
                 .build();
-
-        batch.addPrompt(prompt);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
@@ -78,11 +77,11 @@ public class PromptService {
         promptRepository.delete(prompt);
     }
 
-    private String resolveLabel(String label, Batch batch) {
+    private String resolveLabel(String label, Long batchId) {
         if (label != null && !label.isBlank()) {
             return label;
         }
-        int count = batch.getPromptCount();
+        long count = promptRepository.countByBatchId(batchId);
         return "프롬프트 " + (count + 1);
     }
 }
