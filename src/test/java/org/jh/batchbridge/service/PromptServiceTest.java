@@ -88,7 +88,7 @@ class PromptServiceTest {
         PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, "new-user");
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
-        when(promptRepository.findById(10L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
         when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
 
         BatchPromptResponse response = promptService.updatePrompt(1L, 10L, request);
@@ -99,14 +99,10 @@ class PromptServiceTest {
 
     @Test
     void updatePrompt_WrongBatch_ThrowsException() {
-        BatchPrompt prompt = BatchPrompt.builder()
-                .id(10L)
-                .batch(completedBatch) // Wrong batch
-                .build();
         PromptUpdateRequest request = new PromptUpdateRequest("new", null, "new");
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
-        when(promptRepository.findById(10L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> promptService.updatePrompt(1L, 10L, request))
                 .isInstanceOf(PromptNotFoundException.class);
@@ -120,7 +116,7 @@ class PromptServiceTest {
                 .build();
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
-        when(promptRepository.findById(10L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
 
         promptService.deletePrompt(1L, 10L);
 

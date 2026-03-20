@@ -34,7 +34,7 @@ public class PromptService {
 
         BatchPrompt prompt = BatchPrompt.builder()
                 .batch(batch)
-                .label(resolveLabel(request.label(), batch))
+                .label(resolveLabel(request.label(), batchId))
                 .systemPrompt(request.systemPrompt())
                 .userPrompt(request.userPrompt())
                 .status(PromptStatus.PENDING)
@@ -52,13 +52,8 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
-        BatchPrompt prompt = promptRepository.findById(promptId)
+        BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
                 .orElseThrow(() -> new PromptNotFoundException(promptId));
-
-        // promptId가 batchId 소속인지 확인
-        if (!prompt.getBatch().getId().equals(batchId)) {
-            throw new PromptNotFoundException(promptId);
-        }
 
         if (request.label() != null) prompt.setLabel(request.label());
         if (request.systemPrompt() != null) prompt.setSystemPrompt(request.systemPrompt());
@@ -76,22 +71,17 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
-        BatchPrompt prompt = promptRepository.findById(promptId)
+        BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
                 .orElseThrow(() -> new PromptNotFoundException(promptId));
-
-        // promptId가 batchId 소속인지 확인
-        if (!prompt.getBatch().getId().equals(batchId)) {
-            throw new PromptNotFoundException(promptId);
-        }
 
         promptRepository.delete(prompt);
     }
 
-    private String resolveLabel(String label, Batch batch) {
+    private String resolveLabel(String label, Long batchId) {
         if (label != null && !label.isBlank()) {
             return label;
         }
-        long count = promptRepository.countByBatchId(batch.getId());
+        long count = promptRepository.countByBatchId(batchId);
         return "프롬프트 " + (count + 1);
     }
 }

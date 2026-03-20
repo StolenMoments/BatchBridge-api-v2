@@ -11,7 +11,13 @@ import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.service.PromptService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/batches/{batchId}/prompts")
@@ -36,7 +42,7 @@ public class PromptController {
     public ResponseEntity<ApiResponse<BatchPromptResponse>> updatePrompt(
             @PathVariable Long batchId,
             @PathVariable Long promptId,
-            @RequestBody PromptUpdateRequest request) {
+            @RequestBody @Valid PromptUpdateRequest request) {
         BatchPromptResponse response = promptService.updatePrompt(batchId, promptId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
