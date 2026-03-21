@@ -7,6 +7,7 @@ import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.response.ModelInfo;
 
 public interface BatchApiPort {
 
@@ -17,4 +18,6 @@ public interface BatchApiPort {
     BatchStatusResult fetchStatus(ExternalBatchId externalBatchId);
 
     Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts);
+
+    List<ModelInfo> fetchSupportedModels();
 }

@@ -22,6 +22,8 @@ import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
+import org.jh.batchbridge.dto.response.ModelInfo;
+import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
 import org.jh.batchbridge.service.BatchService;
 import org.junit.jupiter.api.Test;
@@ -33,11 +35,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = BatchController.class)
+@WebMvcTest(controllers = {BatchController.class, ModelController.class})
 @Import({GlobalExceptionHandler.class})
 @TestPropertySource(properties = {
-        "batch-bridge.supported-models[0].id=claude-3-5-sonnet-20240620",
-        "batch-bridge.supported-models[0].label=Claude 3.5 Sonnet"
+        "batch-bridge.supported-models.claude[0].id=claude-3-5-sonnet-20240620",
+        "batch-bridge.supported-models.claude[0].displayName=Claude 3.5 Sonnet"
 })
 class BatchControllerTest {
 
@@ -49,6 +51,9 @@ class BatchControllerTest {
 
     @MockitoBean
     private BatchService batchService;
+
+    @MockitoBean
+    private org.jh.batchbridge.service.ModelService modelService;
 
     @MockitoBean
     private ModelListProperties modelListProperties;
@@ -177,13 +182,15 @@ class BatchControllerTest {
 
     @Test
     void getModels_ReturnsSupportedModels() throws Exception {
-        when(modelListProperties.getSupportedModels()).thenReturn(List.of(
-                new org.jh.batchbridge.dto.response.ModelResponse("claude-3-5-sonnet-20240620", "Claude 3.5 Sonnet")
+        when(modelService.getAllModels()).thenReturn(List.of(
+                new ModelInfo("claude-3-5-sonnet-20240620", "Claude 3.5 Sonnet")
         ));
 
         mockMvc.perform(get("/api/models"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].id").value("claude-3-5-sonnet-20240620"))
+                .andExpect(jsonPath("$.data[0].displayName").value("Claude 3.5 Sonnet"));
     }
 }

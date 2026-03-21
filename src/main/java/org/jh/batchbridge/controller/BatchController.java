@@ -6,14 +6,12 @@ import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
-import org.jh.batchbridge.config.ModelListProperties;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
-import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.service.BatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class BatchController {
 
     private final BatchService batchService;
-    private final List<ModelResponse> supportedModels;
 
-    public BatchController(BatchService batchService, ModelListProperties modelListProperties) {
+    public BatchController(BatchService batchService) {
         this.batchService = batchService;
-        this.supportedModels = modelListProperties.getSupportedModels();
     }
 
     @PostMapping("/batches")
@@ -77,11 +73,5 @@ public class BatchController {
     public ApiResponse<BatchDetailResponse> syncStatus(@PathVariable Long id) {
         BatchDetailResponse response = batchService.syncStatus(id);
         return ApiResponse.success(response);
-    }
-
-    @GetMapping("/models")
-    @Operation(summary = "List supported models", description = "List models available for batch creation.")
-    public ApiResponse<List<ModelResponse>> getModels() {
-        return ApiResponse.success(supportedModels);
     }
 }

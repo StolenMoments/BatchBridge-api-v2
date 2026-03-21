@@ -12,6 +12,7 @@ import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.exception.UnsupportedModelException;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +58,11 @@ class BatchApiClientFactoryTest {
         @Override
         public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
             return Map.of();
+        }
+
+        @Override
+        public List<ModelInfo> fetchSupportedModels() {
+            return List.of();
         }
     }
 }
