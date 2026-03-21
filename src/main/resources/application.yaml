@@ -24,6 +24,10 @@ batch-bridge:
       label: Claude 3 Opus
     - id: claude-3-haiku-20240307
       label: Claude 3 Haiku
+  claude:
+    beta-header: message-batches-2024-09-24
+    connect-timeout-ms: 10000
+    read-timeout-ms: 30000
   api-keys:
     claude: ${CLAUDE_API_KEY}
     grok:   ${GROK_API_KEY}
