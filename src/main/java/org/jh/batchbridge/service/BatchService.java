@@ -62,7 +62,7 @@ public class BatchService {
 
     @Transactional(readOnly = true)
     public BatchListResponse getList(BatchStatus status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<BatchSummaryView> batchPage = batchRepository.findBatchSummaries(status, pageable);
 
         List<BatchSummaryResponse> content = batchPage.getContent().stream()
@@ -73,7 +73,7 @@ public class BatchService {
                 content,
                 batchPage.getTotalElements(),
                 batchPage.getTotalPages(),
-                batchPage.getNumber(),
+                batchPage.getNumber() + 1,
                 batchPage.getSize()
         );
     }
