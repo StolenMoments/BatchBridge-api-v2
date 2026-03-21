@@ -2,6 +2,7 @@ package org.jh.batchbridge.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Set;
 import org.jh.batchbridge.domain.PromptResult;
@@ -9,7 +10,14 @@ import org.junit.jupiter.api.Test;
 
 class ClaudeBatchAdapterTest {
 
-    private final ClaudeBatchAdapter adapter = new ClaudeBatchAdapter("test-api-key", 1024);
+    private final ClaudeBatchAdapter adapter = new ClaudeBatchAdapter(
+            "test-api-key",
+            "message-batches-2024-09-24",
+            10000,
+            30000,
+            1024,
+            new ObjectMapper()
+    );
 
     @Test
     void parseResults_parsesSucceededAndErroredResults() {

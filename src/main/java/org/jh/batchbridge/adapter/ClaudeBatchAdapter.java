@@ -1,9 +1,14 @@
 package org.jh.batchbridge.adapter;
 
+import static java.util.stream.Collectors.toSet;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -23,7 +28,11 @@ import org.jh.batchbridge.exception.ExternalApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -33,6 +42,9 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     private static final Logger log = LoggerFactory.getLogger(ClaudeBatchAdapter.class);
     private static final String MODEL_PREFIX = "claude-";
     private static final String PROCESSING_STATUS_ENDED = "ended";
+    private static final String PROCESSING_STATUS_CANCELING = "canceling";
+    private static final String PROCESSING_STATUS_CANCELED = "canceled";
+    private static final String PROCESSING_STATUS_EXPIRED = "expired";
     private static final String RESULT_TYPE_SUCCEEDED = "succeeded";
 
     private final RestClient restClient;
@@ -41,16 +53,24 @@ public class ClaudeBatchAdapter implements BatchApiPort {
 
     public ClaudeBatchAdapter(
             @Value("${batch-bridge.api-keys.claude}") String apiKey,
-            @Value("${batch-bridge.claude.default-max-tokens:100000}") int defaultMaxTokens
+            @Value("${batch-bridge.claude.beta-header:message-batches-2024-09-24}") String betaHeader,
+            @Value("${batch-bridge.claude.connect-timeout-ms:10000}") int connectTimeout,
+            @Value("${batch-bridge.claude.read-timeout-ms:30000}") int readTimeout,
+            @Value("${batch-bridge.claude.default-max-tokens:100000}") int defaultMaxTokens,
+            ObjectMapper objectMapper
     ) {
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeout));
+
         this.restClient = RestClient.builder()
+                .requestFactory(requestFactory)
                 .baseUrl("https://api.anthropic.com")
                 .defaultHeader("x-api-key", apiKey)
                 .defaultHeader("anthropic-version", "2023-06-01")
-                .defaultHeader("anthropic-beta", "message-batches-2024-09-24")
+                .defaultHeader("anthropic-beta", betaHeader)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
         this.defaultMaxTokens = defaultMaxTokens;
     }
 
@@ -73,6 +93,9 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 throw new ExternalApiException("Claude batch create response does not contain id");
             }
             return new ExternalBatchId(response.id());
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Claude API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ExternalApiException("Failed to create Claude batch: " + e.getResponseBodyAsString(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to create Claude batch", e);
         }
@@ -96,6 +119,9 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             }
 
             return new BatchStatusResult(toBatchStatus(response.processingStatus()), errorMessage);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Claude API error fetching status: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ExternalApiException("Failed to fetch Claude batch status: " + e.getResponseBodyAsString(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to fetch Claude batch status: " + externalBatchId.value(), e);
         }
@@ -103,25 +129,104 @@ public class ClaudeBatchAdapter implements BatchApiPort {
 
     @Override
     public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
+        Set<Long> expectedPromptIds = (prompts == null || prompts.isEmpty())
+                ? Set.of()
+                : prompts.stream()
+                        .map(BatchPrompt::getId)
+                        .filter(Objects::nonNull)
+                        .collect(toSet());
+
         try {
-            byte[] bytes = restClient.get()
+            return restClient.get()
                     .uri("/v1/messages/batches/{id}/results", externalBatchId.value())
-                    .retrieve()
-                    .body(byte[].class);
-            if (bytes == null || bytes.length == 0) {
-                return Map.of();
-            }
-            String jsonlBody = new String(bytes, StandardCharsets.UTF_8);
-            Set<Long> expectedPromptIds = prompts == null
-                    ? Set.of()
-                    : prompts.stream()
-                            .map(BatchPrompt::getId)
-                            .filter(Objects::nonNull)
-                            .collect(java.util.stream.Collectors.toSet());
-            return parseResults(jsonlBody, expectedPromptIds);
+                    .exchange((request, response) -> {
+                        if (!response.getStatusCode().is2xxSuccessful()) {
+                            throw new ExternalApiException("Failed to fetch Claude batch results: " + response.getStatusCode());
+                        }
+                        return parseResultsFromStream(response, expectedPromptIds);
+                    });
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Claude API error fetching results: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ExternalApiException("Failed to fetch Claude batch results: " + e.getResponseBodyAsString(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to fetch Claude batch results: " + externalBatchId.value(), e);
         }
+    }
+
+    private Map<Long, PromptResult> parseResultsFromStream(ClientHttpResponse response, Set<Long> expectedPromptIds) throws IOException {
+        Map<Long, PromptResult> results = new HashMap<>();
+        int skippedLines = 0;
+        int lineNumber = 0;
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                JsonNode lineNode;
+                try {
+                    lineNode = objectMapper.readTree(line);
+                } catch (IOException e) {
+                    skippedLines++;
+                    log.warn("Skipping invalid Claude result line [line={}]", lineNumber, e);
+                    continue;
+                }
+
+                String customId = lineNode.path("custom_id").asText(null);
+                if (customId == null || customId.isBlank()) {
+                    skippedLines++;
+                    log.warn("Skipping Claude result line without custom_id [line={}]", lineNumber);
+                    continue;
+                }
+
+                final Long promptId;
+                try {
+                    promptId = Long.valueOf(customId);
+                } catch (NumberFormatException e) {
+                    skippedLines++;
+                    log.warn("Skipping Claude result line with non-numeric custom_id [line={}, customId={}]", lineNumber, customId);
+                    continue;
+                }
+
+                if (!expectedPromptIds.isEmpty() && !expectedPromptIds.contains(promptId)) {
+                    skippedLines++;
+                    log.warn("Skipping Claude result for unknown prompt id [promptId={}]", promptId);
+                    continue;
+                }
+
+                JsonNode resultNode = lineNode.path("result");
+                String type = resultNode.path("type").asText();
+
+                PromptResult promptResult;
+                if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
+                    String text = extractText(resultNode.path("message").path("content"));
+                    promptResult = new PromptResult(true, text, null);
+                } else {
+                    String errorMsg = resultNode.path("error").path("message").asText("Unknown error");
+                    promptResult = new PromptResult(false, null, errorMsg);
+                }
+
+                PromptResult previous = results.put(promptId, promptResult);
+                if (previous != null) {
+                    log.warn("Duplicate Claude result detected for prompt id [promptId={}]", promptId);
+                }
+            }
+        }
+
+        if (skippedLines > 0) {
+            log.warn("Skipped {} invalid/unmatched Claude result line(s)", skippedLines);
+        }
+        if (!expectedPromptIds.isEmpty() && results.isEmpty()) {
+            log.warn("No valid Claude prompt results parsed from payload");
+        }
+        if (!expectedPromptIds.isEmpty() && results.size() < expectedPromptIds.size()) {
+            log.warn("Claude results are missing prompts [expected={}, parsed={}]", expectedPromptIds.size(), results.size());
+        }
+
+        return results;
     }
 
     private Map<String, Object> buildSubmitRequestBody(BatchSubmitRequest request) {
@@ -162,12 +267,19 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         if (PROCESSING_STATUS_ENDED.equals(normalized)) {
             return ExternalBatchStatus.COMPLETED;
         }
-        if ("failed".equals(normalized) || "errored".equals(normalized) || "canceled".equals(normalized)) {
+        if ("failed".equals(normalized) || "errored".equals(normalized) 
+                || PROCESSING_STATUS_CANCELING.equals(normalized)
+                || PROCESSING_STATUS_CANCELED.equals(normalized)
+                || PROCESSING_STATUS_EXPIRED.equals(normalized)) {
             return ExternalBatchStatus.FAILED;
         }
         return ExternalBatchStatus.IN_PROGRESS;
     }
 
+    /**
+     * Parse JSONL results from Claude API.
+     * Declared as package-private for testing purposes.
+     */
     Map<Long, PromptResult> parseResults(String jsonlBody, Set<Long> expectedPromptIds) {
         Map<Long, PromptResult> results = new HashMap<>();
         String[] lines = jsonlBody.split("\\R");
