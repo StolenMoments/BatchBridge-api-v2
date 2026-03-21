@@ -83,25 +83,26 @@ class BatchControllerTest {
         BatchSummaryResponse summary = new BatchSummaryResponse(
                 1L, "label", "model", BatchStatus.COMPLETED, 1, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
         );
-        BatchListResponse response = new BatchListResponse(List.of(summary), 1L, 1, 0, 20);
+        BatchListResponse response = new BatchListResponse(List.of(summary), 1L, 1, 1, 20);
 
-        when(batchService.getList(eq(BatchStatus.COMPLETED), anyInt(), anyInt())).thenReturn(response);
+        when(batchService.getList(eq(BatchStatus.COMPLETED), eq(1), eq(20))).thenReturn(response);
 
         mockMvc.perform(get("/api/batches")
                         .param("status", "COMPLETED")
-                        .param("page", "0")
+                        .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].id").value(1L))
-                .andExpect(jsonPath("$.data.totalElements").value(1));
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.page").value(1));
     }
 
     @Test
     void getList_ReturnsEmptyContent() throws Exception {
-        BatchListResponse response = new BatchListResponse(List.of(), 0L, 0, 0, 20);
+        BatchListResponse response = new BatchListResponse(List.of(), 0L, 0, 1, 20);
 
-        when(batchService.getList(null, 0, 20)).thenReturn(response);
+        when(batchService.getList(null, 1, 20)).thenReturn(response);
 
         mockMvc.perform(get("/api/batches"))
                 .andExpect(status().isOk())
@@ -110,8 +111,19 @@ class BatchControllerTest {
                 .andExpect(jsonPath("$.data.content").isEmpty())
                 .andExpect(jsonPath("$.data.totalElements").value(0))
                 .andExpect(jsonPath("$.data.totalPages").value(0))
-                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
                 .andExpect(jsonPath("$.data.size").value(20));
+    }
+
+    @Test
+    void getList_InvalidPage_Returns400() throws Exception {
+        mockMvc.perform(get("/api/batches")
+                        .param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+
+        verifyNoInteractions(batchService);
     }
 
     @Test

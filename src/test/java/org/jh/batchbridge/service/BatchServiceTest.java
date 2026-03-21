@@ -108,13 +108,14 @@ class BatchServiceTest {
             }
         };
 
-        when(batchRepository.findBatchSummaries(any(), any()))
+        when(batchRepository.findBatchSummaries(any(), argThat(pageable -> pageable.getPageNumber() == 0)))
                 .thenReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 20), 1));
 
-        BatchListResponse response = batchService.getList(null, 0, 20);
+        BatchListResponse response = batchService.getList(null, 1, 20);
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).promptCount()).isEqualTo(3);
+        assertThat(response.page()).isEqualTo(1);
         verify(batchRepository).findBatchSummaries(any(), any());
     }
 

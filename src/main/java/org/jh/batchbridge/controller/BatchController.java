@@ -48,7 +48,7 @@ public class BatchController {
     @Operation(summary = "List batches", description = "List batches with status and paging filters.")
     public ApiResponse<BatchListResponse> getList(
             @RequestParam(required = false) BatchStatus status,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         BatchListResponse response = batchService.getList(status, page, size);
         return ApiResponse.success(response);
