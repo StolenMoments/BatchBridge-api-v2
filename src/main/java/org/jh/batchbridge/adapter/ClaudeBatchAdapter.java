@@ -176,6 +176,10 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         if (modelId.matches(".*-\\d{8}")) {
             return modelId.substring(0, modelId.lastIndexOf('-'));
         }
+        // If it ends with -latest, remove it.
+        if (modelId.endsWith("-latest")) {
+            return modelId.substring(0, modelId.length() - "-latest".length());
+        }
         return modelId;
     }
 
