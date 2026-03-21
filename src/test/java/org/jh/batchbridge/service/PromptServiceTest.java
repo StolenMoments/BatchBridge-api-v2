@@ -43,10 +43,10 @@ class PromptServiceTest {
 
     @BeforeEach
     void setUp() {
-        draftBatch = new Batch("draft", "model");
+        draftBatch = Batch.createDraft("draft", "model");
         ReflectionTestUtils.setField(draftBatch, "id", 1L);
 
-        completedBatch = new Batch("completed", "model");
+        completedBatch = Batch.createDraft("completed", "model");
         ReflectionTestUtils.setField(completedBatch, "id", 2L);
         ReflectionTestUtils.setField(completedBatch, "status", BatchStatus.COMPLETED);
     }

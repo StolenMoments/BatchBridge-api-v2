@@ -3,7 +3,7 @@ package org.jh.batchbridge.dto.external;
 import org.springframework.lang.Nullable;
 
 public record BatchStatusResult(
-        BatchStatus status,
+        ExternalBatchStatus status,
         @Nullable String errorMessage
 ) {
 }

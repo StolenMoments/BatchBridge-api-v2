@@ -27,12 +27,12 @@ class BatchRepositoryTest {
 
     @Test
     void findBatchSummariesReturnsAggregatedPromptCount() {
-        Batch draft = new Batch("draft", "claude-3-5-sonnet-20240620");
-        draft.addPrompt(new BatchPrompt("p1", null, "u1"));
-        draft.addPrompt(new BatchPrompt("p2", null, "u2"));
+        Batch draft = Batch.createDraft("draft", "claude-3-5-sonnet-20240620");
+        draft.addPrompt(BatchPrompt.create("p1", null, "u1"));
+        draft.addPrompt(BatchPrompt.create("p2", null, "u2"));
 
-        Batch inProgress = new Batch("in-progress", "claude-3-5-sonnet-20240620");
-        inProgress.addPrompt(new BatchPrompt("p3", null, "u3"));
+        Batch inProgress = Batch.createDraft("in-progress", "claude-3-5-sonnet-20240620");
+        inProgress.addPrompt(BatchPrompt.create("p3", null, "u3"));
         inProgress.submit("ext-1");
 
         batchRepository.save(draft);

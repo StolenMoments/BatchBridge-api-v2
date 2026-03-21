@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,7 +36,8 @@ class BatchStatusSyncSchedulerTest {
 
     @Test
     void skipsWhenThereAreNoInProgressBatches() {
-        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of());
+        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS, PageRequest.of(0, 100)))
+                .thenReturn(new PageImpl<>(List.of()));
 
         scheduler.syncInProgressBatches();
 
@@ -43,11 +46,12 @@ class BatchStatusSyncSchedulerTest {
 
     @Test
     void delegatesEveryBatchToWorker() {
-        Batch first = new Batch("first", "model");
-        Batch second = new Batch("second", "model");
+        Batch first = Batch.createDraft("first", "model");
+        Batch second = Batch.createDraft("second", "model");
         ReflectionTestUtils.setField(first, "id", 1L);
         ReflectionTestUtils.setField(second, "id", 2L);
-        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS)).thenReturn(List.of(first, second));
+        when(repository.findAllByStatus(BatchStatus.IN_PROGRESS, PageRequest.of(0, 100)))
+                .thenReturn(new PageImpl<>(List.of(first, second)));
 
         scheduler.syncInProgressBatches();
 

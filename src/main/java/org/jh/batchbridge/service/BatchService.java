@@ -11,6 +11,7 @@ import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
@@ -34,6 +35,8 @@ public class BatchService {
 
     private static final String FALLBACK_EXTERNAL_ERROR_MESSAGE = "External batch processing failed";
     private static final String MISSING_EXTERNAL_BATCH_ID_MESSAGE = "External batch id is missing for batch: ";
+    private static final String DEFAULT_BATCH_LABEL_PREFIX = "Batch ";
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("MM/dd HH:mm");
 
     private final BatchRepository batchRepository;
     private final BatchApiClientFactory batchApiClientFactory;
@@ -50,13 +53,9 @@ public class BatchService {
 
         String label = (request.label() != null && !request.label().isBlank())
                 ? request.label()
-                : "배치 " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM/dd HH:mm"));
+                : DEFAULT_BATCH_LABEL_PREFIX + LocalDateTime.now().format(DATE_TIME_FORMATTER);
 
-        Batch batch = Batch.builder()
-                .label(label)
-                .model(request.model())
-                .status(BatchStatus.DRAFT)
-                .build();
+        Batch batch = Batch.createDraft(label, request.model());
 
         return BatchDetailResponse.from(batchRepository.save(batch));
     }
@@ -103,7 +102,6 @@ public class BatchService {
         ExternalBatchId externalId = adapter.submitBatch(submitRequest);
 
         batch.submit(externalId.value());
-        batchRepository.save(batch);
 
         return BatchSubmitResponse.from(batch);
     }
@@ -125,10 +123,10 @@ public class BatchService {
         ExternalBatchId externalBatchId = new ExternalBatchId(batch.getExternalBatchId());
         BatchStatusResult statusResult = adapter.fetchStatus(externalBatchId);
 
-        if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.COMPLETED) {
+        if (statusResult.status() == ExternalBatchStatus.COMPLETED) {
             Map<Long, PromptResult> results = adapter.fetchResults(externalBatchId, batch.getPrompts());
             batch.complete(results);
-        } else if (statusResult.status() == org.jh.batchbridge.dto.external.BatchStatus.FAILED) {
+        } else if (statusResult.status() == ExternalBatchStatus.FAILED) {
             String errorMessage = (statusResult.errorMessage() == null || statusResult.errorMessage().isBlank())
                     ? FALLBACK_EXTERNAL_ERROR_MESSAGE
                     : statusResult.errorMessage();
