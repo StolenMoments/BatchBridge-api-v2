@@ -35,10 +35,23 @@ class ClaudeBatchAdapterTest {
 
     @Test
     void getBaseName_IdentifiesBaseNameWithoutDate() {
+        // 기존 테스트 케이스
         assertThat(adapter.getBaseName("claude-3-5-sonnet-20240620")).isEqualTo("claude-3-5-sonnet");
         assertThat(adapter.getBaseName("claude-3-5-sonnet-20241022")).isEqualTo("claude-3-5-sonnet");
         assertThat(adapter.getBaseName("claude-3-opus-20240229")).isEqualTo("claude-3-opus");
         assertThat(adapter.getBaseName("claude-2.1")).isEqualTo("claude-2.1");
-        assertThat(adapter.getBaseName("claude-3-7-sonnet-latest")).isEqualTo("claude-3-7-sonnet-latest");
+        
+        // 추가된 테스트 케이스 (사용자 리포트 기반)
+        assertThat(adapter.getBaseName("claude-sonnet-4-5-20250929")).isEqualTo("claude-sonnet-4-5");
+        assertThat(adapter.getBaseName("claude-sonnet-4-20250514")).isEqualTo("claude-sonnet-4");
+        assertThat(adapter.getBaseName("claude-3-haiku-20240307")).isEqualTo("claude-3-haiku");
+        assertThat(adapter.getBaseName("claude-opus-4-5-20251101")).isEqualTo("claude-opus-4-5");
+        assertThat(adapter.getBaseName("claude-haiku-4-5-20251001")).isEqualTo("claude-haiku-4-5");
+        assertThat(adapter.getBaseName("claude-opus-4-1-20250805")).isEqualTo("claude-opus-4-1");
+        assertThat(adapter.getBaseName("claude-opus-4-20250514")).isEqualTo("claude-opus-4");
+        
+        // -latest 처리 확인
+        assertThat(adapter.getBaseName("claude-3-5-sonnet-latest")).isEqualTo("claude-3-5-sonnet");
+        assertThat(adapter.getBaseName("claude-3-7-sonnet-latest")).isEqualTo("claude-3-7-sonnet");
     }
 }
