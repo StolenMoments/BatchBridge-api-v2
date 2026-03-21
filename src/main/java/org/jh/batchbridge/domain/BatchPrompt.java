@@ -12,11 +12,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.sql.Types;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
 
 @Entity
 @Table(name = "batch_prompt")
@@ -37,11 +39,11 @@ public class BatchPrompt {
     @Column(nullable = false, length = 100)
     private String label;
 
-    @Lob
+    @JdbcTypeCode(Types.LONGVARCHAR)
     private String systemPrompt;
 
-    @Lob
     @Column(nullable = false)
+    @JdbcTypeCode(Types.LONGVARCHAR)
     private String userPrompt;
 
     @Enumerated(EnumType.STRING)
