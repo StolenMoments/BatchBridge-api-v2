@@ -171,16 +171,45 @@ public class ClaudeBatchAdapter implements BatchApiPort {
      * Declared as package-private for testing purposes.
      */
     String getBaseName(String modelId) {
-        // pattern: claude-3-5-sonnet-20241022 -> claude-3-5-sonnet
-        // If it ends with -YYYYMMDD, remove it.
-        if (modelId.matches(".*-\\d{8}")) {
-            return modelId.substring(0, modelId.lastIndexOf('-'));
+        // First, handle -latest
+        String base = modelId;
+        if (base.endsWith("-latest")) {
+            base = base.substring(0, base.length() - "-latest".length());
         }
-        // If it ends with -latest, remove it.
-        if (modelId.endsWith("-latest")) {
-            return modelId.substring(0, modelId.length() - "-latest".length());
+
+        // Then, handle date suffix -YYYYMMDD
+        if (base.matches(".*-\\d{8}")) {
+            base = base.substring(0, base.lastIndexOf('-'));
         }
-        return modelId;
+
+        // The user seems to want to group all variants of a model family together
+        // Example: claude-sonnet-4-5, claude-sonnet-4-6 -> claude-sonnet
+        // If we strip ALL trailing version-like numbers/dots, we can group them.
+        
+        // But let's look at the example again:
+        // claude-sonnet-4-5-20250929 -> base "claude-sonnet-4-5"
+        // claude-sonnet-4-6 -> base "claude-sonnet-4-6"
+        // They are different bases, so both show up.
+        
+        // If the user says "걸러내야해" (must filter out) for these, 
+        // they probably want only the latest SONNET, latest OPUS, etc. regardless of minor version numbers in the ID.
+        
+        // New strategy: find the family name (sonnet, opus, haiku) and everything before it.
+        // ID pattern usually is: claude-[version]-[family]-[subversion]
+        // Actually, it varies. "claude-3-5-sonnet", "claude-sonnet-4-5"
+        
+        // Let's try to identify the family keywords.
+        if (base.contains("sonnet")) {
+            return base.substring(0, base.indexOf("sonnet") + "sonnet".length());
+        }
+        if (base.contains("opus")) {
+            return base.substring(0, base.indexOf("opus") + "opus".length());
+        }
+        if (base.contains("haiku")) {
+            return base.substring(0, base.indexOf("haiku") + "haiku".length());
+        }
+        
+        return base;
     }
 
     private record ClaudeModelsResponse(List<ClaudeModelData> data) {}
