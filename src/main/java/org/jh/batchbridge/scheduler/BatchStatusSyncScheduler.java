@@ -7,6 +7,8 @@ import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class BatchStatusSyncScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(BatchStatusSyncScheduler.class);
+    private static final int BATCH_SIZE = 100;
 
     private final BatchRepository repository;
     private final BatchStatusSyncWorker worker;
@@ -23,22 +26,37 @@ public class BatchStatusSyncScheduler {
         this.worker = worker;
     }
 
-    @Scheduled(fixedDelay = 2, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedDelayString = "${batch-bridge.sync.interval-minutes:2}", timeUnit = TimeUnit.MINUTES)
     public void syncInProgressBatches() {
-        List<Batch> targets = repository.findAllByStatus(BatchStatus.IN_PROGRESS);
-        if (targets.isEmpty()) {
-            log.info("Batch sync skipped: no IN_PROGRESS batches");
-            return;
+        log.info("Batch sync started");
+        int page = 0;
+        long processedCount = 0;
+
+        while (true) {
+            Page<Batch> targets = repository.findAllByStatus(BatchStatus.IN_PROGRESS, PageRequest.of(page, BATCH_SIZE));
+            if (targets.isEmpty()) {
+                break;
+            }
+
+            for (Batch batch : targets) {
+                try {
+                    worker.syncOne(batch.getId());
+                    processedCount++;
+                } catch (Exception e) {
+                    log.error("Batch sync failed [id={}]: {}", batch.getId(), e.getMessage(), e);
+                }
+            }
+
+            if (!targets.hasNext()) {
+                break;
+            }
+            page++;
         }
 
-        log.info("Batch sync started: {} IN_PROGRESS batches", targets.size());
-        for (Batch batch : targets) {
-            try {
-                worker.syncOne(batch.getId());
-            } catch (Exception e) {
-                log.error("Batch sync failed [id={}]: {}", batch.getId(), e.getMessage(), e);
-            }
+        if (processedCount == 0) {
+            log.info("Batch sync skipped: no IN_PROGRESS batches");
+        } else {
+            log.info("Batch sync finished: {} batches processed", processedCount);
         }
-        log.info("Batch sync finished");
     }
 }

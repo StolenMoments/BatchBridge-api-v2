@@ -6,6 +6,7 @@ import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.slf4j.Logger;
@@ -44,7 +45,6 @@ public class BatchStatusSyncWorker {
         if (externalBatchId == null || externalBatchId.isBlank()) {
             String errorMessage = "External batch id is missing for batch: " + batch.getId();
             batch.fail(errorMessage);
-            repository.save(batch);
             log.warn("Batch failed due to missing external batch id [id={}]", batch.getId());
             return;
         }
@@ -53,21 +53,19 @@ public class BatchStatusSyncWorker {
         BatchApiPort adapter = factory.getAdapter(batch.getModel());
         BatchStatusResult result = adapter.fetchStatus(id);
 
-        if (result.status() == org.jh.batchbridge.dto.external.BatchStatus.COMPLETED) {
+        if (result.status() == ExternalBatchStatus.COMPLETED) {
             Map<Long, PromptResult> results = adapter.fetchResults(id, batch.getPrompts());
             batch.complete(results);
-            repository.save(batch);
             log.info("Batch completed [id={}]", batch.getId());
             return;
         }
 
-        if (result.status() == org.jh.batchbridge.dto.external.BatchStatus.FAILED) {
+        if (result.status() == ExternalBatchStatus.FAILED) {
             String errorMessage = result.errorMessage();
             if (errorMessage == null || errorMessage.isBlank()) {
                 errorMessage = FALLBACK_EXTERNAL_ERROR_MESSAGE;
             }
             batch.fail(errorMessage);
-            repository.save(batch);
             log.info("Batch failed [id={}]", batch.getId());
         }
     }

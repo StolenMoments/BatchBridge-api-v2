@@ -14,20 +14,21 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "batch")
 @Getter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Batch {
 
     private static final Logger log = LoggerFactory.getLogger(Batch.class);
@@ -66,11 +67,13 @@ public class Batch {
     @Builder.Default
     private List<BatchPrompt> prompts = new ArrayList<>();
 
-    public Batch(String label, String model) {
-        this.label = label;
-        this.model = model;
-        this.status = BatchStatus.DRAFT;
-        this.prompts = new ArrayList<>();
+    public static Batch createDraft(String label, String model) {
+        return Batch.builder()
+                .label(label)
+                .model(model)
+                .status(BatchStatus.DRAFT)
+                .prompts(new ArrayList<>())
+                .build();
     }
 
     public void addPrompt(BatchPrompt prompt) {
@@ -131,15 +134,14 @@ public class Batch {
     }
 
     public void fail(String errorMessage) {
+        if (this.status == BatchStatus.COMPLETED || this.status == BatchStatus.FAILED) {
+            return;
+        }
         this.status = BatchStatus.FAILED;
         this.errorMessage = errorMessage;
         this.completedAt = LocalDateTime.now();
         for (BatchPrompt prompt : prompts) {
             prompt.fail(errorMessage);
         }
-    }
-
-    public void setExternalBatchId(String externalBatchId) {
-        this.externalBatchId = externalBatchId;
     }
 }

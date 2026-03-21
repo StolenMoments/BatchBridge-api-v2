@@ -1,9 +1,12 @@
 package org.jh.batchbridge.controller;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import org.jh.batchbridge.config.ModelListProperties;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
@@ -12,10 +15,9 @@ import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.service.BatchService;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 @Tag(name = "Batch", description = "Batch management APIs")
+@Validated
 public class BatchController {
 
     private final BatchService batchService;
@@ -49,8 +52,8 @@ public class BatchController {
     @Operation(summary = "List batches", description = "List batches with status and paging filters.")
     public ApiResponse<BatchListResponse> getList(
             @RequestParam(required = false) BatchStatus status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         BatchListResponse response = batchService.getList(status, page, size);
         return ApiResponse.success(response);
     }
@@ -80,19 +83,5 @@ public class BatchController {
     @Operation(summary = "List supported models", description = "List models available for batch creation.")
     public ApiResponse<List<ModelResponse>> getModels() {
         return ApiResponse.success(supportedModels);
-    }
-
-    @Component
-    @ConfigurationProperties(prefix = "batch-bridge")
-    public static class ModelListProperties {
-        private List<ModelResponse> supportedModels;
-
-        public List<ModelResponse> getSupportedModels() {
-            return supportedModels;
-        }
-
-        public void setSupportedModels(List<ModelResponse> supportedModels) {
-            this.supportedModels = supportedModels;
-        }
     }
 }

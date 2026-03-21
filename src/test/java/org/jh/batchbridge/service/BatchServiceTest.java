@@ -17,6 +17,7 @@ import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
@@ -119,16 +120,15 @@ class BatchServiceTest {
 
     @Test
     void submitBatch_SubmitsToExternalAndReturnsInProgressResponse() {
-        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         ReflectionTestUtils.setField(batch, "id", 1L);
-        BatchPrompt prompt = new BatchPrompt("prompt-1", "system", "user");
+        BatchPrompt prompt = BatchPrompt.create("prompt-1", "system", "user");
         ReflectionTestUtils.setField(prompt, "id", 101L);
         batch.addPrompt(prompt);
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
         when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
         when(batchApiPort.submitBatch(any())).thenReturn(new ExternalBatchId("msgbatch_01abc123"));
-        when(batchRepository.save(any(Batch.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         BatchSubmitResponse response = batchService.submitBatch(1L);
 
@@ -144,12 +144,11 @@ class BatchServiceTest {
                         && "system".equals(request.prompts().getFirst().systemPrompt())
                         && "user".equals(request.prompts().getFirst().userPrompt())
         ));
-        verify(batchRepository).save(batch);
     }
 
     @Test
     void submitBatch_WhenBatchIsNotDraft_ThrowsBatchNotEditable() {
-        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         batch.submit("ext-1");
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
 
@@ -162,7 +161,7 @@ class BatchServiceTest {
 
     @Test
     void submitBatch_WhenBatchHasNoPrompts_ThrowsBatchEmpty() {
-        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
 
         assertThatThrownBy(() -> batchService.submitBatch(1L))
@@ -174,10 +173,10 @@ class BatchServiceTest {
 
     @Test
     void syncStatus_MissingExternalBatchId_FailsBatchAndSkipsExternalCall() {
-        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         ReflectionTestUtils.setField(batch, "id", 11L);
         batch.submit("external-1");
-        batch.setExternalBatchId("   ");
+        ReflectionTestUtils.setField(batch, "externalBatchId", "   ");
 
         when(batchRepository.findById(11L)).thenReturn(Optional.of(batch));
 
@@ -190,16 +189,17 @@ class BatchServiceTest {
 
     @Test
     void syncStatus_WhenCompleted_FetchesResultsAndCompletesBatch() {
-        Batch batch = new Batch("label", "claude-3-5-sonnet-20240620");
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         ReflectionTestUtils.setField(batch, "id", 1L);
-        BatchPrompt prompt = new BatchPrompt("prompt-1", "system", "user");
+        BatchPrompt prompt = BatchPrompt.create("prompt-1", "system", "user");
         ReflectionTestUtils.setField(prompt, "id", 101L);
         batch.addPrompt(prompt);
         batch.submit("ext-1");
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
         when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
-        when(batchApiPort.fetchStatus(any())).thenReturn(new org.jh.batchbridge.dto.external.BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+        when(batchApiPort.fetchStatus(any())).thenReturn(new org.jh.batchbridge.dto.external.BatchStatusResult(
+            ExternalBatchStatus.COMPLETED, null));
         when(batchApiPort.fetchResults(any(), any())).thenReturn(java.util.Map.of(101L, new PromptResult(true, "result text", null)));
 
         batchService.syncStatus(1L);

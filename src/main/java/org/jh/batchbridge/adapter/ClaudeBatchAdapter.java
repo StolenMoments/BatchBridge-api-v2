@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.dto.external.BatchStatus;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -153,19 +153,19 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         return Map.of("requests", requests);
     }
 
-    private BatchStatus toBatchStatus(String processingStatus) {
+    private ExternalBatchStatus toBatchStatus(String processingStatus) {
         if (processingStatus == null || processingStatus.isBlank()) {
-            return BatchStatus.IN_PROGRESS;
+            return ExternalBatchStatus.IN_PROGRESS;
         }
 
         String normalized = processingStatus.toLowerCase(Locale.ROOT);
         if (PROCESSING_STATUS_ENDED.equals(normalized)) {
-            return BatchStatus.COMPLETED;
+            return ExternalBatchStatus.COMPLETED;
         }
         if ("failed".equals(normalized) || "errored".equals(normalized) || "canceled".equals(normalized)) {
-            return BatchStatus.FAILED;
+            return ExternalBatchStatus.FAILED;
         }
-        return BatchStatus.IN_PROGRESS;
+        return ExternalBatchStatus.IN_PROGRESS;
     }
 
     Map<Long, PromptResult> parseResults(String jsonlBody, Set<Long> expectedPromptIds) {

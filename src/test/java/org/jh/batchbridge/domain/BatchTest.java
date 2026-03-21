@@ -12,7 +12,7 @@ class BatchTest {
     @DisplayName("isEditable returns true only when status is DRAFT")
     @Test
     void isEditable() {
-        Batch batch = new Batch("test", "claude");
+        Batch batch = Batch.createDraft("test", "claude");
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.DRAFT);
         assertThat(batch.isEditable()).isTrue();
 
@@ -24,7 +24,7 @@ class BatchTest {
     @DisplayName("submit updates status and externalBatchId")
     @Test
     void submit() {
-        Batch batch = new Batch("test", "claude");
+        Batch batch = Batch.createDraft("test", "claude");
         batch.submit("ext-123");
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.IN_PROGRESS);
@@ -35,7 +35,7 @@ class BatchTest {
     @DisplayName("submit throws exception if not DRAFT")
     @Test
     void submit_fail() {
-        Batch batch = new Batch("test", "claude");
+        Batch batch = Batch.createDraft("test", "claude");
         batch.submit("ext-1");
         
         assertThatThrownBy(() -> batch.submit("ext-2"))
@@ -45,8 +45,8 @@ class BatchTest {
     @DisplayName("complete with map updates prompts and batch status")
     @Test
     void complete_map() {
-        Batch batch = new Batch("test", "claude");
-        BatchPrompt prompt1 = new BatchPrompt("p1", "sys", "user");
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt prompt1 = BatchPrompt.create("p1", "sys", "user");
         batch.addPrompt(prompt1);
         setField(prompt1, "id", 1L);
 
@@ -66,9 +66,9 @@ class BatchTest {
     @DisplayName("complete marks prompts as failed when result is missing")
     @Test
     void complete_marksPromptFailedWhenResultMissing() {
-        Batch batch = new Batch("test", "claude");
-        BatchPrompt prompt1 = new BatchPrompt("p1", "sys", "user");
-        BatchPrompt prompt2 = new BatchPrompt("p2", "sys", "user");
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt prompt1 = BatchPrompt.create("p1", "sys", "user");
+        BatchPrompt prompt2 = BatchPrompt.create("p2", "sys", "user");
         batch.addPrompt(prompt1);
         batch.addPrompt(prompt2);
         setField(prompt1, "id", 1L);
@@ -86,9 +86,9 @@ class BatchTest {
     @DisplayName("complete continues processing when a prompt throws")
     @Test
     void complete_continuesWhenPromptProcessingThrows() {
-        Batch batch = new Batch("test", "claude");
-        BatchPrompt faultyPrompt = new FaultyBatchPrompt("faulty", "sys", "user");
-        BatchPrompt healthyPrompt = new BatchPrompt("healthy", "sys", "user");
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt faultyPrompt = FaultyBatchPrompt.create("faulty", "sys", "user");
+        BatchPrompt healthyPrompt = BatchPrompt.create("healthy", "sys", "user");
         batch.addPrompt(faultyPrompt);
         batch.addPrompt(healthyPrompt);
         setField(faultyPrompt, "id", 1L);
@@ -110,8 +110,8 @@ class BatchTest {
     @DisplayName("fail updates batch and prompts status")
     @Test
     void fail() {
-        Batch batch = new Batch("test", "claude");
-        BatchPrompt prompt1 = new BatchPrompt("p1", "sys", "user");
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt prompt1 = BatchPrompt.create("p1", "sys", "user");
         batch.addPrompt(prompt1);
         batch.submit("ext-1");
 
@@ -148,8 +148,30 @@ class BatchTest {
 
     private static class FaultyBatchPrompt extends BatchPrompt {
 
-        private FaultyBatchPrompt(String label, String systemPrompt, String userPrompt) {
-            super(label, systemPrompt, userPrompt);
+        public static FaultyBatchPrompt create(String label, String systemPrompt, String userPrompt) {
+            BatchPrompt bp = BatchPrompt.builder()
+                    .label(label)
+                    .systemPrompt(systemPrompt)
+                    .userPrompt(userPrompt)
+                    .status(PromptStatus.PENDING)
+                    .build();
+            
+            FaultyBatchPrompt fbp = new FaultyBatchPrompt();
+            setFieldStatic(fbp, "label", bp.getLabel());
+            setFieldStatic(fbp, "systemPrompt", bp.getSystemPrompt());
+            setFieldStatic(fbp, "userPrompt", bp.getUserPrompt());
+            setFieldStatic(fbp, "status", bp.getStatus());
+            return fbp;
+        }
+
+        private static void setFieldStatic(Object target, String fieldName, Object value) {
+            try {
+                java.lang.reflect.Field field = BatchPrompt.class.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                field.set(target, value);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override

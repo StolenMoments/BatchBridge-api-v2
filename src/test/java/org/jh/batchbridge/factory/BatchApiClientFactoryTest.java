@@ -8,7 +8,7 @@ import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.dto.external.BatchStatus;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -51,7 +51,7 @@ class BatchApiClientFactoryTest {
 
         @Override
         public BatchStatusResult fetchStatus(ExternalBatchId externalBatchId) {
-            return new BatchStatusResult(BatchStatus.IN_PROGRESS, null);
+            return new BatchStatusResult(ExternalBatchStatus.IN_PROGRESS, null);
         }
 
         @Override

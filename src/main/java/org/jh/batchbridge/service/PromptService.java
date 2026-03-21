@@ -32,12 +32,11 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
-        BatchPrompt prompt = BatchPrompt.builder()
-                .label(resolveLabel(request.label(), batch))
-                .systemPrompt(request.systemPrompt())
-                .userPrompt(request.userPrompt())
-                .status(PromptStatus.PENDING)
-                .build();
+        BatchPrompt prompt = BatchPrompt.create(
+                resolveLabel(request.label(), batch),
+                request.systemPrompt(),
+                request.userPrompt()
+        );
 
         batch.addPrompt(prompt);
 
@@ -54,9 +53,11 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
-        if (request.label() != null) prompt.setLabel(request.label());
-        if (request.systemPrompt() != null) prompt.setSystemPrompt(request.systemPrompt());
-        if (request.userPrompt() != null) prompt.setUserPrompt(request.userPrompt());
+        String label = request.label() != null ? request.label() : prompt.getLabel();
+        String systemPrompt = request.systemPrompt() != null ? request.systemPrompt() : prompt.getSystemPrompt();
+        String userPrompt = request.userPrompt() != null ? request.userPrompt() : prompt.getUserPrompt();
+
+        prompt.update(label, systemPrompt, userPrompt);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }

@@ -16,6 +16,7 @@ import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,14 +48,13 @@ class BatchStatusSyncWorkerTest {
     @Test
     void marksBatchFailedWhenExternalBatchIdIsMissing() {
         Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
-        batch.setExternalBatchId(" ");
+        ReflectionTestUtils.setField(batch, "externalBatchId", " ");
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
 
         worker.syncOne(1L);
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
         assertThat(batch.getErrorMessage()).contains("External batch id is missing for batch: 1");
-        verify(repository).save(batch);
         verifyNoInteractions(factory);
     }
 
@@ -66,7 +66,7 @@ class BatchStatusSyncWorkerTest {
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
                 .thenReturn(Map.of(101L, new PromptResult(true, "done", null)));
 
@@ -74,7 +74,6 @@ class BatchStatusSyncWorkerTest {
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(batch.getPrompts().get(0).getResponseContent()).isEqualTo("done");
-        verify(repository).save(batch);
     }
 
     @Test
@@ -85,7 +84,7 @@ class BatchStatusSyncWorkerTest {
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
                 .thenReturn(Map.of());
 
@@ -94,7 +93,6 @@ class BatchStatusSyncWorkerTest {
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(prompt.getStatus()).isEqualTo(PromptStatus.FAILED);
         assertThat(prompt.getErrorMessage()).isEqualTo("No result found for prompt");
-        verify(repository).save(batch);
     }
 
     @Test
@@ -103,13 +101,12 @@ class BatchStatusSyncWorkerTest {
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.FAILED, "bad request"));
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.FAILED, "bad request"));
 
         worker.syncOne(1L);
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
         assertThat(batch.getErrorMessage()).isEqualTo("bad request");
-        verify(repository).save(batch);
     }
 
     @Test
@@ -118,14 +115,14 @@ class BatchStatusSyncWorkerTest {
         BatchPrompt successPrompt = batch.getPrompts().get(0);
         ReflectionTestUtils.setField(successPrompt, "id", 101L);
         
-        BatchPrompt failPrompt = new BatchPrompt("fail", "sys", "user");
+        BatchPrompt failPrompt = BatchPrompt.create("fail", "sys", "user");
         ReflectionTestUtils.setField(failPrompt, "id", 102L);
         batch.addPrompt(failPrompt);
 
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
         
         // 101L은 성공, 102L은 명시적인 실패 결과 응답
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
@@ -141,7 +138,6 @@ class BatchStatusSyncWorkerTest {
         assertThat(successPrompt.getResponseContent()).isEqualTo("success");
         assertThat(failPrompt.getStatus()).isEqualTo(PromptStatus.FAILED);
         assertThat(failPrompt.getErrorMessage()).isEqualTo("error message");
-        verify(repository).save(batch);
     }
 
     @Test
@@ -159,7 +155,7 @@ class BatchStatusSyncWorkerTest {
         when(repository.findById(1L)).thenReturn(Optional.of(batch));
         when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
-                .thenReturn(new BatchStatusResult(org.jh.batchbridge.dto.external.BatchStatus.COMPLETED, null));
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
         
         // Let's assume some unexpected data in PromptResult might cause an issue, 
         // but the current code handles nulls and unexpected results.
@@ -170,13 +166,12 @@ class BatchStatusSyncWorkerTest {
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(normalPrompt.getStatus()).isEqualTo(PromptStatus.COMPLETED);
-        verify(repository).save(batch);
     }
 
     private Batch inProgressBatch(String model, String externalBatchId) {
-        Batch batch = new Batch("label", model);
+        Batch batch = Batch.createDraft("label", model);
         ReflectionTestUtils.setField(batch, "id", 1L);
-        batch.addPrompt(new BatchPrompt("prompt-1", "system", "user"));
+        batch.addPrompt(BatchPrompt.create("prompt-1", "system", "user"));
         batch.submit(externalBatchId);
         return batch;
     }

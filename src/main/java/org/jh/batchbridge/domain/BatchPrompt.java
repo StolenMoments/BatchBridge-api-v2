@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,8 +22,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "batch_prompt")
 @Getter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class BatchPrompt {
 
     @Id
@@ -54,26 +55,25 @@ public class BatchPrompt {
     @Column(length = 500)
     private String errorMessage;
 
-    public BatchPrompt(String label, String systemPrompt, String userPrompt) {
-        this.label = label;
-        this.systemPrompt = systemPrompt;
-        this.userPrompt = userPrompt;
-        this.status = PromptStatus.PENDING;
+    public static BatchPrompt create(String label, String systemPrompt, String userPrompt) {
+        return BatchPrompt.builder()
+                .label(label)
+                .systemPrompt(systemPrompt)
+                .userPrompt(userPrompt)
+                .status(PromptStatus.PENDING)
+                .build();
     }
 
     public void assignBatch(Batch batch) {
         this.batch = batch;
     }
 
-    public void setLabel(String label) {
+    public void update(String label, String systemPrompt, String userPrompt) {
+        if (batch != null && !batch.isEditable()) {
+            throw new IllegalStateException("Cannot update prompt of a non-draft batch.");
+        }
         this.label = label;
-    }
-
-    public void setSystemPrompt(String systemPrompt) {
         this.systemPrompt = systemPrompt;
-    }
-
-    public void setUserPrompt(String userPrompt) {
         this.userPrompt = userPrompt;
     }
 
