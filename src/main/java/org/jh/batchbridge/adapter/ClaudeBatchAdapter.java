@@ -2,6 +2,7 @@ package org.jh.batchbridge.adapter;
 
 import static java.util.stream.Collectors.toSet;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
@@ -24,6 +25,8 @@ import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.claude.ClaudeBatchResponse;
+import org.jh.batchbridge.dto.response.ModelInfo;
+import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.exception.ExternalApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,6 +129,30 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             throw new ExternalApiException("Failed to fetch Claude batch status: " + externalBatchId.value(), e);
         }
     }
+
+    @Override
+    public List<ModelInfo> fetchSupportedModels() {
+        try {
+            ClaudeModelsResponse response = restClient.get()
+                    .uri("/v1/models?limit=100")
+                    .retrieve()
+                    .body(ClaudeModelsResponse.class);
+
+            if (response == null || response.data() == null) {
+                return List.of();
+            }
+
+            return response.data().stream()
+                    .map(data -> new ModelInfo(data.id(), data.displayName()))
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to fetch Claude models: {}", e.getMessage());
+            throw new ExternalApiException("Failed to fetch Claude models", e);
+        }
+    }
+
+    private record ClaudeModelsResponse(List<ClaudeModelData> data) {}
+    private record ClaudeModelData(String id, @JsonProperty("display_name") String displayName) {}
 
     @Override
     public Map<Long, PromptResult> fetchResults(ExternalBatchId externalBatchId, List<BatchPrompt> prompts) {
