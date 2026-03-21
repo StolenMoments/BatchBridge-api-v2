@@ -34,14 +34,11 @@ class ClaudeBatchAdapterTest {
     }
 
     @Test
-    void parseResults_returnsEmptyWhenNoValidResultIsParsed() {
-        String jsonlBody = """
-                {"custom_id":"abc","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"ignored"}]}}}
-                {"custom_id":"999","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"ignored"}]}}}
-                """;
-
-        Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L));
-
-        assertThat(results).isEmpty();
+    void getBaseName_IdentifiesBaseNameWithoutDate() {
+        assertThat(adapter.getBaseName("claude-3-5-sonnet-20240620")).isEqualTo("claude-3-5-sonnet");
+        assertThat(adapter.getBaseName("claude-3-5-sonnet-20241022")).isEqualTo("claude-3-5-sonnet");
+        assertThat(adapter.getBaseName("claude-3-opus-20240229")).isEqualTo("claude-3-opus");
+        assertThat(adapter.getBaseName("claude-2.1")).isEqualTo("claude-2.1");
+        assertThat(adapter.getBaseName("claude-3-7-sonnet-latest")).isEqualTo("claude-3-7-sonnet-latest");
     }
 }

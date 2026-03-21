@@ -142,13 +142,41 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 return List.of();
             }
 
-            return response.data().stream()
-                    .map(data -> new ModelInfo(data.id(), data.displayName()))
-                    .toList();
+            // Filter for only the latest versions:
+            // 1. Group by base name (without date suffix if possible)
+            // 2. Sort by id (lexicographical since it's date-based YYYYMMDD)
+            // 3. Keep only the last one for each group
+            Map<String, ModelInfo> latestModels = new HashMap<>();
+            for (ClaudeModelData data : response.data()) {
+                String id = data.id();
+                String baseName = getBaseName(id);
+                
+                ModelInfo current = new ModelInfo(id, data.displayName());
+                ModelInfo existing = latestModels.get(baseName);
+                
+                if (existing == null || id.compareTo(existing.id()) > 0) {
+                    latestModels.put(baseName, current);
+                }
+            }
+
+            return new ArrayList<>(latestModels.values());
         } catch (Exception e) {
             log.error("Failed to fetch Claude models: {}", e.getMessage());
             throw new ExternalApiException("Failed to fetch Claude models", e);
         }
+    }
+
+    /**
+     * Identifies the base name of a Claude model by stripping the date suffix if present.
+     * Declared as package-private for testing purposes.
+     */
+    String getBaseName(String modelId) {
+        // pattern: claude-3-5-sonnet-20241022 -> claude-3-5-sonnet
+        // If it ends with -YYYYMMDD, remove it.
+        if (modelId.matches(".*-\\d{8}")) {
+            return modelId.substring(0, modelId.lastIndexOf('-'));
+        }
+        return modelId;
     }
 
     private record ClaudeModelsResponse(List<ClaudeModelData> data) {}
