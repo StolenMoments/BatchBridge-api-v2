@@ -12,6 +12,7 @@ import org.jh.batchbridge.service.PromptService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -54,5 +55,14 @@ public class PromptController {
             @PathVariable Long promptId) {
         promptService.deletePrompt(batchId, promptId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{promptId}")
+    @Operation(summary = "Get prompt", description = "Get a prompt in a batch.")
+    public ResponseEntity<ApiResponse<BatchPromptResponse>> getPrompt(
+            @PathVariable Long batchId,
+            @PathVariable Long promptId) {
+        BatchPromptResponse response = promptService.getPrompt(batchId, promptId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

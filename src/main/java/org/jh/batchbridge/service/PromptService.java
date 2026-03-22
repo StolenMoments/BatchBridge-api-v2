@@ -74,6 +74,12 @@ public class PromptService {
         promptRepository.delete(prompt);
     }
 
+    public BatchPromptResponse getPrompt(Long batchId, Long promptId) {
+        BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
+                .orElseThrow(() -> new PromptNotFoundException(promptId));
+        return BatchPromptResponse.from(prompt);
+    }
+
     private String resolveLabel(String label, Batch batch) {
         if (label != null && !label.isBlank()) {
             return label;

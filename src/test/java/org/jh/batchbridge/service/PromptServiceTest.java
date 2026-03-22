@@ -119,4 +119,28 @@ class PromptServiceTest {
 
         verify(promptRepository).delete(prompt);
     }
+
+    @Test
+    void getPrompt_Success() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("test-label")
+                .build();
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+
+        BatchPromptResponse response = promptService.getPrompt(1L, 10L);
+
+        assertThat(response.id()).isEqualTo(10L);
+        assertThat(response.label()).isEqualTo("test-label");
+    }
+
+    @Test
+    void getPrompt_NotFound_ThrowsException() {
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> promptService.getPrompt(1L, 10L))
+                .isInstanceOf(PromptNotFoundException.class);
+    }
 }

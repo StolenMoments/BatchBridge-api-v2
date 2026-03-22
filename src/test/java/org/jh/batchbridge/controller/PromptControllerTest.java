@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -76,6 +77,19 @@ class PromptControllerTest {
 
         mockMvc.perform(delete("/api/batches/1/prompts/10"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void getPrompt_Returns200() throws Exception {
+        BatchPromptResponse response = new BatchPromptResponse(10L, "label", "system", "user", PromptStatus.PENDING, null, null);
+
+        when(promptService.getPrompt(1L, 10L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/batches/1/prompts/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(10L))
+                .andExpect(jsonPath("$.data.label").value("label"));
     }
 
     @Test
