@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
@@ -56,6 +57,18 @@ public class BatchService {
                 : DEFAULT_BATCH_LABEL_PREFIX + LocalDateTime.now().format(DATE_TIME_FORMATTER);
 
         Batch batch = Batch.createDraft(label, request.model());
+
+        BatchCreateRequest.PromptPayload promptPayload = request.prompt();
+        String promptLabel = (promptPayload.label() != null && !promptPayload.label().isBlank())
+                ? promptPayload.label()
+                : "Prompt 1";
+
+        BatchPrompt prompt = BatchPrompt.create(
+                promptLabel,
+                promptPayload.systemPrompt(),
+                promptPayload.userPrompt()
+        );
+        batch.addPrompt(prompt);
 
         return BatchDetailResponse.from(batchRepository.save(batch));
     }

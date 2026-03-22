@@ -19,6 +19,7 @@ import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
+import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.exception.BatchEmptyException;
@@ -54,7 +55,8 @@ class BatchServiceTest {
 
     @Test
     void createBatch_UnsupportedModel_ThrowsAndDoesNotPersist() {
-        BatchCreateRequest request = new BatchCreateRequest("label", "unknown-model");
+        BatchCreateRequest.PromptPayload promptPayload = new BatchCreateRequest.PromptPayload("prompt-label", "system", "user");
+        BatchCreateRequest request = new BatchCreateRequest("label", "unknown-model", promptPayload);
         when(batchApiClientFactory.getAdapter("unknown-model")).thenThrow(new UnsupportedModelException("unknown-model"));
 
         assertThatThrownBy(() -> batchService.createBatch(request))
@@ -62,6 +64,50 @@ class BatchServiceTest {
 
         verify(batchApiClientFactory).getAdapter("unknown-model");
         verifyNoInteractions(batchRepository);
+    }
+
+    @Test
+    void createBatch_SavesBatchAndPromptTogether() {
+        BatchCreateRequest.PromptPayload promptPayload = new BatchCreateRequest.PromptPayload("prompt-label", "system", "user");
+        BatchCreateRequest request = new BatchCreateRequest("batch-label", "claude-3-5-sonnet-20240620", promptPayload);
+
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchRepository.save(any(Batch.class))).thenAnswer(invocation -> {
+            Batch b = invocation.getArgument(0);
+            ReflectionTestUtils.setField(b, "id", 1L);
+            if (!b.getPrompts().isEmpty()) {
+                ReflectionTestUtils.setField(b.getPrompts().get(0), "id", 100L);
+            }
+            return b;
+        });
+
+        BatchDetailResponse response = batchService.createBatch(request);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.label()).isEqualTo("batch-label");
+        assertThat(response.promptCount()).isEqualTo(1);
+        assertThat(response.prompts()).hasSize(1);
+        assertThat(response.prompts().get(0).userPrompt()).isEqualTo("user");
+        assertThat(response.prompts().get(0).label()).isEqualTo("prompt-label");
+
+        verify(batchRepository).save(argThat(batch ->
+                batch.getLabel().equals("batch-label") &&
+                        batch.getPrompts().size() == 1 &&
+                        batch.getPrompts().get(0).getUserPrompt().equals("user")
+        ));
+    }
+
+    @Test
+    void createBatch_DefaultPromptLabel_WhenPromptLabelIsMissing() {
+        BatchCreateRequest.PromptPayload promptPayload = new BatchCreateRequest.PromptPayload(null, "system", "user");
+        BatchCreateRequest request = new BatchCreateRequest("batch-label", "claude-3-5-sonnet-20240620", promptPayload);
+
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchRepository.save(any(Batch.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BatchDetailResponse response = batchService.createBatch(request);
+
+        assertThat(response.prompts().get(0).label()).isEqualTo("Prompt 1");
     }
 
     @Test
