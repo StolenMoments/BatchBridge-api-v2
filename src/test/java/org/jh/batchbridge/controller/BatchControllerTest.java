@@ -60,10 +60,13 @@ class BatchControllerTest {
 
     @Test
     void createBatch_Returns201() throws Exception {
-        BatchCreateRequest request = new BatchCreateRequest("test-label", "claude-3-5-sonnet-20240620");
+        BatchCreateRequest.PromptPayload promptPayload = new BatchCreateRequest.PromptPayload("prompt-label", "system", "user");
+        BatchCreateRequest request = new BatchCreateRequest("test-label", "claude-3-5-sonnet-20240620", promptPayload);
         BatchDetailResponse response = new BatchDetailResponse(
                 1L, "test-label", "claude-3-5-sonnet-20240620", BatchStatus.DRAFT,
-                0, null, null, LocalDateTime.now(), null, null, List.of()
+                1, null, null, LocalDateTime.now(), null, null, List.of(
+                        new BatchPromptResponse(1L, "prompt-label", "system", "user", PromptStatus.PENDING, null, null)
+                )
         );
 
         when(batchService.createBatch(any(BatchCreateRequest.class))).thenReturn(response);
@@ -75,7 +78,8 @@ class BatchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
-                .andExpect(jsonPath("$.data.promptCount").value(0));
+                .andExpect(jsonPath("$.data.promptCount").value(1))
+                .andExpect(jsonPath("$.data.prompts[0].userPrompt").value("user"));
     }
 
     @Test
