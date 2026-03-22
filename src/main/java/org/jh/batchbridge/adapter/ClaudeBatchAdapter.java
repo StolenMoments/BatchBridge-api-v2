@@ -14,19 +14,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.claude.ClaudeBatchResponse;
 import org.jh.batchbridge.dto.response.ModelInfo;
-import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.exception.ExternalApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +58,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             @Value("${batch-bridge.claude.beta-header:message-batches-2024-09-24}") String betaHeader,
             @Value("${batch-bridge.claude.connect-timeout-ms:10000}") int connectTimeout,
             @Value("${batch-bridge.claude.read-timeout-ms:30000}") int readTimeout,
-            @Value("${batch-bridge.claude.default-max-tokens:100000}") int defaultMaxTokens,
+            @Value("${batch-bridge.claude.default-max-tokens:63000}") int defaultMaxTokens,
             ObjectMapper objectMapper
     ) {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
