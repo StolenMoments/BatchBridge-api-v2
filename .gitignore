@@ -38,5 +38,6 @@ out/
 
 ### LLM ###
 .junie
+AGENTS.md
 GEMINI.md
 CLAUDE.md
