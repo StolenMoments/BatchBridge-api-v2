@@ -292,7 +292,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                     String text = extractText(resultNode.path("message").path("content"));
                     promptResult = new PromptResult(true, text, null);
                 } else {
-                    String errorMsg = resultNode.path("error").path("message").asText("Unknown error");
+                    String errorMsg = resultNode.path("error").path("message").path("content").asText("Unknown error");
                     promptResult = new PromptResult(false, null, errorMsg);
                 }
 
@@ -416,7 +416,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 String text = extractText(resultNode.path("message").path("content"));
                 promptResult = new PromptResult(true, text, null);
             } else {
-                String errorMsg = resultNode.path("error").path("message").asText("Unknown error");
+                String errorMsg = resultNode.path("error").path("message").path("content").asText("Unknown error");
                 promptResult = new PromptResult(false, null, errorMsg);
             }
 
