@@ -24,13 +24,17 @@ class ClaudeBatchAdapterTest {
         String jsonlBody = """
                 {"custom_id":"101","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"hello 한글"}]}}}
                 {"custom_id":"102","result":{"type":"errored","error":{"message":"bad request"}}}
+                {"custom_id":"23","result":{"type":"errored","error":{"type":"error","error":{"details":{"error_visibility":"user_facing"},"type":"invalid_request_error","message":"max_tokens: 100000 > 64000, which is the maximum allowed number of output tokens for claude-haiku-4-5-20251001"},"request_id":null}}}
+                {"custom_id":"24","result":{"type":"errored","error":{"type":"overloaded_error","message":"Overloaded"}}}
                 """;
 
-        Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L, 102L));
+        Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L, 102L, 23L, 24L));
 
-        assertThat(results).hasSize(2);
+        assertThat(results).hasSize(4);
         assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello 한글", null));
         assertThat(results.get(102L)).isEqualTo(new PromptResult(false, null, "bad request"));
+        assertThat(results.get(23L)).isEqualTo(new PromptResult(false, null, "max_tokens: 100000 > 64000, which is the maximum allowed number of output tokens for claude-haiku-4-5-20251001"));
+        assertThat(results.get(24L)).isEqualTo(new PromptResult(false, null, "Overloaded"));
     }
 
     @Test

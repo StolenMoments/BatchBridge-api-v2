@@ -21,9 +21,11 @@ import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
+import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.dto.response.ModelResponse;
+import org.jh.batchbridge.exception.BatchNotSyncedException;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
 import org.jh.batchbridge.service.BatchService;
 import org.junit.jupiter.api.Test;
@@ -194,6 +196,30 @@ class BatchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
+    void syncPrompts_Returns200() throws Exception {
+        BatchSyncPromptsResponse response = new BatchSyncPromptsResponse(1L, 2, 1);
+
+        when(batchService.syncPrompts(1L)).thenReturn(response);
+
+        mockMvc.perform(post("/api/batches/1/sync-prompts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.resynced").value(2))
+                .andExpect(jsonPath("$.data.stillFailed").value(1));
+    }
+
+    @Test
+    void syncPrompts_WhenBatchNotSynced_Returns409() throws Exception {
+        when(batchService.syncPrompts(1L)).thenThrow(new BatchNotSyncedException("Only COMPLETED batches"));
+
+        mockMvc.perform(post("/api/batches/1/sync-prompts"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_SYNCED"));
     }
 
     @Test

@@ -22,10 +22,14 @@ import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
+import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
 import org.jh.batchbridge.exception.BatchEmptyException;
 import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
+import org.jh.batchbridge.exception.BatchNotSyncedException;
 import org.jh.batchbridge.exception.UnsupportedModelException;
+import org.jh.batchbridge.domain.PromptStatus;
+import java.util.Map;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.jh.batchbridge.repository.BatchSummaryView;
@@ -262,5 +266,56 @@ class BatchServiceTest {
 
         assertThatThrownBy(() -> batchService.syncStatus(99L))
                 .isInstanceOf(BatchNotFoundException.class);
+    }
+
+    @Test
+    void syncPrompts_WhenBatchNotCompleted_ThrowsBatchNotSynced() {
+        Batch batch = Batch.builder().id(1L).status(BatchStatus.IN_PROGRESS).build();
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.syncPrompts(1L))
+                .isInstanceOf(BatchNotSyncedException.class)
+                .hasMessageContaining("Only COMPLETED batches");
+    }
+
+    @Test
+    void syncPrompts_WhenSomePromptsFailed_ResyncsThem() {
+        Batch batch = Batch.builder()
+                .id(1L)
+                .status(BatchStatus.COMPLETED)
+                .model("claude-model")
+                .externalBatchId("ext-id")
+                .build();
+        BatchPrompt p1 = BatchPrompt.builder().id(101L).status(PromptStatus.COMPLETED).responseContent("already-ok").build();
+        BatchPrompt p2 = BatchPrompt.builder().id(102L).status(PromptStatus.FAILED).errorMessage("old-error").build();
+        BatchPrompt p3 = BatchPrompt.builder().id(103L).status(PromptStatus.PENDING).build();
+        batch.addPrompt(p1);
+        batch.addPrompt(p2);
+        batch.addPrompt(p3);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-model")).thenReturn(batchApiPort);
+        
+        // p2, p3 should be targets
+        Map<Long, PromptResult> results = Map.of(
+                102L, new PromptResult(true, "new-content", null),
+                103L, new PromptResult(false, null, "still-no-result")
+        );
+        when(batchApiPort.fetchResults(any(), any())).thenReturn(results);
+
+        BatchSyncPromptsResponse response = batchService.syncPrompts(1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.resynced()).isEqualTo(1); // p2
+        assertThat(response.stillFailed()).isEqualTo(1); // p3
+
+        assertThat(p1.getStatus()).isEqualTo(PromptStatus.COMPLETED);
+        assertThat(p1.getResponseContent()).isEqualTo("already-ok");
+        
+        assertThat(p2.getStatus()).isEqualTo(PromptStatus.COMPLETED);
+        assertThat(p2.getResponseContent()).isEqualTo("new-content");
+        
+        assertThat(p3.getStatus()).isEqualTo(PromptStatus.FAILED);
+        assertThat(p3.getErrorMessage()).isEqualTo("still-no-result");
     }
 }

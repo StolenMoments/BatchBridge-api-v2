@@ -292,7 +292,17 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                     String text = extractText(resultNode.path("message").path("content"));
                     promptResult = new PromptResult(true, text, null);
                 } else {
-                    String errorMsg = resultNode.path("error").path("message").path("content").asText("Unknown error");
+                    JsonNode errorNode = resultNode.path("error");
+                    String errorMsg = errorNode.path("message").asText(null);
+
+                    // Handle nested error structure: result.error.error.message
+                    if (errorMsg == null && errorNode.has("error")) {
+                        errorMsg = errorNode.path("error").path("message").asText(null);
+                    }
+
+                    if (errorMsg == null) {
+                        errorMsg = "Unknown error";
+                    }
                     promptResult = new PromptResult(false, null, errorMsg);
                 }
 
@@ -416,7 +426,18 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 String text = extractText(resultNode.path("message").path("content"));
                 promptResult = new PromptResult(true, text, null);
             } else {
-                String errorMsg = resultNode.path("error").path("message").path("content").asText("Unknown error");
+                JsonNode errorNode = resultNode.path("error");
+                String errorMsg = errorNode.path("message").asText(null);
+                
+                // Handle nested error structure: result.error.error.message
+                if (errorMsg == null && errorNode.has("error")) {
+                    errorMsg = errorNode.path("error").path("message").asText(null);
+                }
+                
+                if (errorMsg == null) {
+                    errorMsg = "Unknown error";
+                }
+                
                 promptResult = new PromptResult(false, null, errorMsg);
             }
 

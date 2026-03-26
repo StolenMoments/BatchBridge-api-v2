@@ -17,10 +17,13 @@ import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
+import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.exception.BatchEmptyException;
 import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
+import org.jh.batchbridge.exception.BatchNotSyncedException;
+import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.jh.batchbridge.repository.BatchSummaryView;
@@ -147,5 +150,46 @@ public class BatchService {
         }
 
         return BatchDetailResponse.from(batch);
+    }
+
+    @Transactional
+    public BatchSyncPromptsResponse syncPrompts(Long id) {
+        Batch batch = batchRepository.findById(id)
+                .orElseThrow(() -> new BatchNotFoundException(id));
+
+        if (batch.getStatus() != BatchStatus.COMPLETED) {
+            throw new BatchNotSyncedException("Only COMPLETED batches can have prompts resynced. Current status: " + batch.getStatus());
+        }
+
+        List<BatchPrompt> targetPrompts = batch.getPrompts().stream()
+                .filter(p -> p.getStatus() == PromptStatus.PENDING || p.getStatus() == PromptStatus.FAILED)
+                .toList();
+
+        if (targetPrompts.isEmpty()) {
+            return new BatchSyncPromptsResponse(id, 0, 0);
+        }
+
+        BatchApiPort adapter = batchApiClientFactory.getAdapter(batch.getModel());
+        ExternalBatchId externalBatchId = new ExternalBatchId(batch.getExternalBatchId());
+        Map<Long, PromptResult> results = adapter.fetchResults(externalBatchId, targetPrompts);
+
+        int resynced = 0;
+        int stillFailed = 0;
+
+        for (BatchPrompt prompt : targetPrompts) {
+            PromptResult result = results.get(prompt.getId());
+            if (result != null && result.success()) {
+                prompt.complete(result.responseContent());
+                resynced++;
+            } else {
+                String errorMsg = (result != null && result.errorMessage() != null && !result.errorMessage().isBlank())
+                        ? result.errorMessage()
+                        : "No result found for prompt";
+                prompt.fail(errorMsg);
+                stillFailed++;
+            }
+        }
+
+        return new BatchSyncPromptsResponse(id, resynced, stillFailed);
     }
 }

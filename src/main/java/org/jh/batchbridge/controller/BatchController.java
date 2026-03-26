@@ -12,6 +12,7 @@ import org.jh.batchbridge.dto.request.BatchCreateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
+import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
 import org.jh.batchbridge.service.BatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -72,6 +73,13 @@ public class BatchController {
     @Operation(summary = "Sync batch status", description = "Sync latest batch status from external API.")
     public ApiResponse<BatchDetailResponse> syncStatus(@PathVariable Long id) {
         BatchDetailResponse response = batchService.syncStatus(id);
+        return ApiResponse.success(response);
+    }
+
+    @PostMapping("/batches/{id}/sync-prompts")
+    @Operation(summary = "Resync batch prompts", description = "Force resync PENDING/FAILED prompts for a COMPLETED batch.")
+    public ApiResponse<BatchSyncPromptsResponse> syncPrompts(@PathVariable Long id) {
+        BatchSyncPromptsResponse response = batchService.syncPrompts(id);
         return ApiResponse.success(response);
     }
 }

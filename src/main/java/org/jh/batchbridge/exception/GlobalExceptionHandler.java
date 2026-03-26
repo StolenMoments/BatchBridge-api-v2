@@ -28,6 +28,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.CONFLICT, "BATCH_NOT_EDITABLE", e.getMessage());
     }
 
+    @ExceptionHandler(BatchNotSyncedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBatchNotSynced(BatchNotSyncedException e) {
+        return buildError(HttpStatus.CONFLICT, "BATCH_NOT_SYNCED", e.getMessage());
+    }
+
     @ExceptionHandler(BatchEmptyException.class)
     public ResponseEntity<ApiResponse<Void>> handleBatchEmpty(BatchEmptyException e) {
         return buildError(HttpStatus.BAD_REQUEST, "BATCH_EMPTY", e.getMessage());
