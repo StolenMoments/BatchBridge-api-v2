@@ -11,13 +11,27 @@ public record BatchSubmitRequest(
     public record PromptItem(
             Long promptId,
             @Nullable String systemPrompt,
-            String userPrompt
+            String userPrompt,
+            List<AttachmentItem> attachments
+    ) {
+    }
+
+    public record AttachmentItem(
+            String fileName,
+            String fileContent
     ) {
     }
 
     public static BatchSubmitRequest from(Batch batch) {
         List<PromptItem> items = batch.getPrompts().stream()
-                .map(prompt -> new PromptItem(prompt.getId(), prompt.getSystemPrompt(), prompt.getUserPrompt()))
+                .map(prompt -> new PromptItem(
+                        prompt.getId(),
+                        prompt.getSystemPrompt(),
+                        prompt.getUserPrompt(),
+                        prompt.getAttachments().stream()
+                                .map(attachment -> new AttachmentItem(attachment.getFileName(), attachment.getFileContent()))
+                                .toList()
+                ))
                 .toList();
         return new BatchSubmitRequest(batch.getModel(), items);
     }

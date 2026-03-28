@@ -26,6 +26,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
+import org.jh.batchbridge.dto.request.PromptAttachmentRequest;
+
 @ExtendWith(MockitoExtension.class)
 class PromptServiceTest {
 
@@ -118,6 +121,37 @@ class PromptServiceTest {
         promptService.deletePrompt(1L, 10L);
 
         verify(promptRepository).delete(prompt);
+    }
+
+    @Test
+    void addPrompt_WithAttachments_Success() {
+        PromptAttachmentRequest attRequest = new PromptAttachmentRequest("file.txt", "content");
+        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", List.of(attRequest));
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
+        when(promptRepository.save(any(BatchPrompt.class))).thenAnswer(invocation -> {
+            BatchPrompt p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "id", 100L);
+            return p;
+        });
+
+        BatchPromptResponse response = promptService.addPrompt(1L, request);
+
+        assertThat(response.attachments()).hasSize(1);
+        assertThat(response.attachments().get(0).fileName()).isEqualTo("file.txt");
+    }
+
+    @Test
+    void addPrompt_AttachmentTooLarge_ThrowsException() {
+        String largeContent = "a".repeat(1_000_001);
+        PromptAttachmentRequest attRequest = new PromptAttachmentRequest("large.txt", largeContent);
+        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", List.of(attRequest));
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
+
+        assertThatThrownBy(() -> promptService.addPrompt(1L, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Attachment content too large");
     }
 
     @Test

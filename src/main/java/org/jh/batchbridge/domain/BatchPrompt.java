@@ -1,5 +1,6 @@
 package org.jh.batchbridge.domain;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,8 +12,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -57,13 +61,30 @@ public class BatchPrompt {
     @Column(length = 500)
     private String errorMessage;
 
+    @OneToMany(mappedBy = "prompt", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PromptAttachment> attachments = new ArrayList<>();
+
     public static BatchPrompt create(String label, String systemPrompt, String userPrompt) {
-        return BatchPrompt.builder()
+        return create(label, systemPrompt, userPrompt, null);
+    }
+
+    public static BatchPrompt create(String label, String systemPrompt, String userPrompt, List<PromptAttachment> attachments) {
+        BatchPrompt prompt = BatchPrompt.builder()
                 .label(label)
                 .systemPrompt(systemPrompt)
                 .userPrompt(userPrompt)
                 .status(PromptStatus.PENDING)
                 .build();
+        if (attachments != null) {
+            attachments.forEach(prompt::addAttachment);
+        }
+        return prompt;
+    }
+
+    public void addAttachment(PromptAttachment attachment) {
+        attachments.add(attachment);
+        attachment.assignPrompt(this);
     }
 
     public void assignBatch(Batch batch) {
