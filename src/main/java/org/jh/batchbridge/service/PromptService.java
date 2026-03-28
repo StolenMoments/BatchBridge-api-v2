@@ -15,10 +15,16 @@ import org.jh.batchbridge.repository.BatchRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import org.jh.batchbridge.domain.PromptAttachment;
+import org.jh.batchbridge.dto.request.PromptAttachmentRequest;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PromptService {
+
+    private static final int MAX_ATTACHMENT_CONTENT_SIZE = 1_000_000; // 1MB limit for example
 
     private final BatchRepository batchRepository;
     private final BatchPromptRepository promptRepository;
@@ -32,15 +38,34 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
+        validateAttachments(request.attachments());
+
+        List<PromptAttachment> attachments = null;
+        if (request.attachments() != null) {
+            attachments = request.attachments().stream()
+                    .map(req -> PromptAttachment.create(req.fileName(), req.fileContent()))
+                    .toList();
+        }
+
         BatchPrompt prompt = BatchPrompt.create(
                 resolveLabel(request.label(), batch),
                 request.systemPrompt(),
-                request.userPrompt()
+                request.userPrompt(),
+                attachments
         );
 
         batch.addPrompt(prompt);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
+    }
+
+    private void validateAttachments(List<PromptAttachmentRequest> attachments) {
+        if (attachments == null) return;
+        for (PromptAttachmentRequest attachment : attachments) {
+            if (attachment.fileContent().length() > MAX_ATTACHMENT_CONTENT_SIZE) {
+                throw new IllegalArgumentException("Attachment content too large: " + attachment.fileName());
+            }
+        }
     }
 
     @Transactional
@@ -53,11 +78,20 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
+        validateAttachments(request.attachments());
+
         String label = request.label() != null ? request.label() : prompt.getLabel();
         String systemPrompt = request.systemPrompt() != null ? request.systemPrompt() : prompt.getSystemPrompt();
         String userPrompt = request.userPrompt() != null ? request.userPrompt() : prompt.getUserPrompt();
 
-        prompt.update(label, systemPrompt, userPrompt);
+        List<PromptAttachment> attachments = null;
+        if (request.attachments() != null) {
+            attachments = request.attachments().stream()
+                    .map(req -> PromptAttachment.create(req.fileName(), req.fileContent()))
+                    .toList();
+        }
+
+        prompt.update(label, systemPrompt, userPrompt, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }

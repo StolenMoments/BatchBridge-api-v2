@@ -3,6 +3,7 @@ package org.jh.batchbridge.dto.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import org.springframework.lang.Nullable;
 
 public record BatchCreateRequest(
@@ -13,7 +14,11 @@ public record BatchCreateRequest(
     public record PromptPayload(
             @Nullable String label,
             @Nullable String systemPrompt,
-            @NotBlank(message = "userPrompt is required") String userPrompt
+            @NotBlank(message = "userPrompt is required") String userPrompt,
+            @Nullable List<PromptAttachmentRequest> attachments
     ) {
+        public PromptPayload(String label, String systemPrompt, String userPrompt) {
+            this(label, systemPrompt, userPrompt, null);
+        }
     }
 }

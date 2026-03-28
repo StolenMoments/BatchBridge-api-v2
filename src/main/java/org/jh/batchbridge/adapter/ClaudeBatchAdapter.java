@@ -326,7 +326,11 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         return results;
     }
 
-    private Map<String, Object> buildSubmitRequestBody(BatchSubmitRequest request) {
+    /**
+     * Builds the request body for Claude batch submission.
+     * Declared as package-private for testing purposes.
+     */
+    Map<String, Object> buildSubmitRequestBody(BatchSubmitRequest request) {
         List<Map<String, Object>> requests = request.prompts().stream()
                 .map(prompt -> {
                     Map<String, Object> params = new LinkedHashMap<>();
@@ -337,10 +341,24 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                         params.put("system", prompt.systemPrompt());
                     }
 
+                    StringBuilder userContent = new StringBuilder();
+                    if (prompt.attachments() != null && !prompt.attachments().isEmpty()) {
+                        userContent.append("<attachments>\n");
+                        for (BatchSubmitRequest.AttachmentItem attachment : prompt.attachments()) {
+                            userContent.append("<attachment name=\"")
+                                    .append(attachment.fileName())
+                                    .append("\">\n")
+                                    .append(attachment.fileContent())
+                                    .append("\n</attachment>\n");
+                        }
+                        userContent.append("</attachments>\n\n");
+                    }
+                    userContent.append(prompt.userPrompt());
+
                     List<Map<String, Object>> messages = new ArrayList<>();
                     messages.add(Map.of(
                             "role", "user",
-                            "content", prompt.userPrompt()
+                            "content", userContent.toString()
                     ));
                     params.put("messages", messages);
 

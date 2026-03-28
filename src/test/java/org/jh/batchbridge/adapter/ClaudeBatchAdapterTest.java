@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
 import org.jh.batchbridge.domain.PromptResult;
+import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.junit.jupiter.api.Test;
 
 class ClaudeBatchAdapterTest {
@@ -93,6 +95,30 @@ class ClaudeBatchAdapterTest {
         assertThat(latestModels.get("claude-opus").id()).isEqualTo("claude-opus-4-6");
         assertThat(latestModels.get("claude-haiku").id()).isEqualTo("claude-haiku-4-5-20251001");
         assertThat(latestModels.get("claude-3-haiku").id()).isEqualTo("claude-3-haiku-20240307");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buildSubmitRequestBody_includesAttachmentsInUserPrompt() {
+        BatchSubmitRequest request = new BatchSubmitRequest("claude-3", java.util.List.of(
+                new BatchSubmitRequest.PromptItem(1L, "sys", "user prompt", java.util.List.of(
+                        new BatchSubmitRequest.AttachmentItem("file1.txt", "content1"),
+                        new BatchSubmitRequest.AttachmentItem("file2.txt", "content2")
+                ))
+        ));
+
+        Map<String, Object> body = adapter.buildSubmitRequestBody(request);
+        var requests = (java.util.List<Map<String, Object>>) body.get("requests");
+        var params = (Map<String, Object>) requests.get(0).get("params");
+        var messages = (java.util.List<Map<String, Object>>) params.get("messages");
+        String content = (String) messages.get(0).get("content");
+
+        assertThat(content).contains("<attachments>");
+        assertThat(content).contains("<attachment name=\"file1.txt\">");
+        assertThat(content).contains("content1");
+        assertThat(content).contains("<attachment name=\"file2.txt\">");
+        assertThat(content).contains("content2");
+        assertThat(content).contains("user prompt");
     }
 
     // Helper record to match the one in ClaudeBatchAdapter

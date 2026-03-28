@@ -34,8 +34,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.stream.Collectors;
+import org.jh.batchbridge.domain.PromptAttachment;
+
 @Service
 public class BatchService {
+
+    private static final int MAX_ATTACHMENT_CONTENT_SIZE = 1_000_000;
 
     private static final String FALLBACK_EXTERNAL_ERROR_MESSAGE = "External batch processing failed";
     private static final String MISSING_EXTERNAL_BATCH_ID_MESSAGE = "External batch id is missing for batch: ";
@@ -66,10 +71,23 @@ public class BatchService {
                 ? promptPayload.label()
                 : "Prompt 1";
 
+        List<PromptAttachment> attachments = null;
+        if (promptPayload.attachments() != null) {
+            for (var attachmentReq : promptPayload.attachments()) {
+                if (attachmentReq.fileContent().length() > MAX_ATTACHMENT_CONTENT_SIZE) {
+                    throw new IllegalArgumentException("Attachment content too large: " + attachmentReq.fileName());
+                }
+            }
+            attachments = promptPayload.attachments().stream()
+                    .map(req -> PromptAttachment.create(req.fileName(), req.fileContent()))
+                    .toList();
+        }
+
         BatchPrompt prompt = BatchPrompt.create(
                 promptLabel,
                 promptPayload.systemPrompt(),
-                promptPayload.userPrompt()
+                promptPayload.userPrompt(),
+                attachments
         );
         batch.addPrompt(prompt);
 
