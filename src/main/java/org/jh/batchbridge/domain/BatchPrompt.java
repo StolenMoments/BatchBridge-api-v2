@@ -91,13 +91,21 @@ public class BatchPrompt {
         this.batch = batch;
     }
 
-    public void update(String label, String systemPrompt, String userPrompt) {
+    public void update(String label, String systemPrompt, String userPrompt, List<PromptAttachment> attachments) {
         if (batch != null && !batch.isEditable()) {
             throw new IllegalStateException("Cannot update prompt of a non-draft batch.");
         }
         this.label = label;
         this.systemPrompt = systemPrompt;
         this.userPrompt = userPrompt;
+        if (attachments != null) {
+            this.attachments.clear();
+            attachments.forEach(this::addAttachment);
+        }
+    }
+
+    public void clearAttachments() {
+        this.attachments.clear();
     }
 
     public void complete(String responseContent) {

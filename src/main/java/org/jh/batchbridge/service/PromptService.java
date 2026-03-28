@@ -78,11 +78,20 @@ public class PromptService {
             throw new BatchNotEditableException("Batch is not editable");
         }
 
+        validateAttachments(request.attachments());
+
         String label = request.label() != null ? request.label() : prompt.getLabel();
         String systemPrompt = request.systemPrompt() != null ? request.systemPrompt() : prompt.getSystemPrompt();
         String userPrompt = request.userPrompt() != null ? request.userPrompt() : prompt.getUserPrompt();
 
-        prompt.update(label, systemPrompt, userPrompt);
+        List<PromptAttachment> attachments = null;
+        if (request.attachments() != null) {
+            attachments = request.attachments().stream()
+                    .map(req -> PromptAttachment.create(req.fileName(), req.fileContent()))
+                    .toList();
+        }
+
+        prompt.update(label, systemPrompt, userPrompt, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
