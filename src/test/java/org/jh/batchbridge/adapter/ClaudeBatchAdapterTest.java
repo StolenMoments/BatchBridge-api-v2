@@ -100,7 +100,7 @@ class ClaudeBatchAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     void buildSubmitRequestBody_includesAttachmentsInUserPrompt() {
-        BatchSubmitRequest request = new BatchSubmitRequest("claude-3", java.util.List.of(
+        BatchSubmitRequest request = new BatchSubmitRequest("test-label", "claude-3", java.util.List.of(
                 new BatchSubmitRequest.PromptItem(1L, "sys", "user prompt", java.util.List.of(
                         new BatchSubmitRequest.AttachmentItem("file1.txt", "content1"),
                         new BatchSubmitRequest.AttachmentItem("file2.txt", "content2")

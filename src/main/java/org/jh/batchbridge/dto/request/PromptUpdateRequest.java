@@ -9,4 +9,7 @@ public record PromptUpdateRequest(
         @Nullable String userPrompt,
         @Nullable List<PromptAttachmentRequest> attachments
 ) {
+    public PromptUpdateRequest(String label, String systemPrompt, String userPrompt) {
+        this(label, systemPrompt, userPrompt, null);
+    }
 }

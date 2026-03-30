@@ -5,6 +5,7 @@ import org.jh.batchbridge.domain.Batch;
 import org.springframework.lang.Nullable;
 
 public record BatchSubmitRequest(
+        String label,
         String model,
         List<PromptItem> prompts
 ) {
@@ -33,6 +34,6 @@ public record BatchSubmitRequest(
                                 .toList()
                 ))
                 .toList();
-        return new BatchSubmitRequest(batch.getModel(), items);
+        return new BatchSubmitRequest(batch.getLabel(), batch.getModel(), items);
     }
 }
