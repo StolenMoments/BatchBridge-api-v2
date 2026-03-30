@@ -1,11 +1,10 @@
 package org.jh.batchbridge.controller;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
