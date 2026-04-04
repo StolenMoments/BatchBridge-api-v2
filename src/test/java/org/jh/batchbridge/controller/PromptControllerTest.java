@@ -24,6 +24,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = PromptController.class)
@@ -38,6 +39,9 @@ class PromptControllerTest {
 
     @MockBean
     private PromptService promptService;
+
+    @MockBean
+    private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Test
     void addPrompt_Returns201() throws Exception {
@@ -57,7 +61,7 @@ class PromptControllerTest {
 
     @Test
     void updatePrompt_Returns200() throws Exception {
-        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user");
+        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user", null);
         BatchPromptResponse response = new BatchPromptResponse(10L, "updated-label", "system", "updated-user", PromptStatus.PENDING, null, null);
 
         when(promptService.updatePrompt(eq(1L), eq(10L), any(PromptUpdateRequest.class))).thenReturn(response);

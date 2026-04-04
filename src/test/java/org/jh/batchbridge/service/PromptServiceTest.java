@@ -88,7 +88,7 @@ class PromptServiceTest {
                 .label("old")
                 .userPrompt("old")
                 .build();
-        PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, "new-user");
+        PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, "new-user", null);
 
         when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
         when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
@@ -101,7 +101,7 @@ class PromptServiceTest {
 
     @Test
     void updatePrompt_WrongBatch_ThrowsException() {
-        PromptUpdateRequest request = new PromptUpdateRequest("new", null, "new");
+        PromptUpdateRequest request = new PromptUpdateRequest("new", null, "new", null);
 
         when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.empty());
 
