@@ -45,8 +45,12 @@ public class ExternalContextService {
                 throw new ExternalApiException("GitHub response does not contain content.");
             }
 
-            String base64Content = (String) response.get("content");
-            String decoded = new String(Base64.getMimeDecoder().decode(base64Content.replaceAll("\n", "")), StandardCharsets.UTF_8);
+            Object contentObj = response.get("content");
+            if (!(contentObj instanceof String)) {
+                throw new ExternalApiException("GitHub response content is not a string.");
+            }
+
+            String decoded = new String(Base64.getMimeDecoder().decode((String) contentObj), StandardCharsets.UTF_8);
 
             return new ExternalContextPreviewResponse(
                     String.format("GitHub: %s/%s/%s", request.owner(), request.repo(), request.path()),
@@ -73,8 +77,18 @@ public class ExternalContextService {
                 throw new ExternalApiException("JIRA response does not contain fields.");
             }
 
-            Map<String, Object> fields = (Map<String, Object>) response.get("fields");
-            String summary = (String) fields.get("summary");
+            Object fieldsObj = response.get("fields");
+            if (!(fieldsObj instanceof Map)) {
+                throw new ExternalApiException("JIRA response fields is not a map.");
+            }
+
+            Map<String, Object> fields = (Map<String, Object>) fieldsObj;
+            Object summaryObj = fields.get("summary");
+            if (!(summaryObj instanceof String)) {
+                throw new ExternalApiException("JIRA issue summary is not a string.");
+            }
+
+            String summary = (String) summaryObj;
             Object descriptionObj = fields.get("description");
 
             // For simplicity, we just show the summary and a placeholder for description if it's ADF

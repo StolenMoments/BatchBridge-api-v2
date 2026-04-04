@@ -71,4 +71,14 @@ class ExternalContextControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void previewJira_ValidationFailure() throws Exception {
+        JiraPreviewRequest request = new JiraPreviewRequest("");
+
+        mockMvc.perform(post("/api/external-context/preview/jira")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
 }
