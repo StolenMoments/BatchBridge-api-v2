@@ -73,7 +73,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
-                .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"))
+                .andExpect(jsonPath("$.error.code").value("CONTEXT_FETCH_FAILED"))
                 .andExpect(jsonPath("$.error.message").value("서버와의 연결에 문제가 발생했습니다. 잠시 후 다시 시도해주세요."));
     }
 
@@ -83,7 +83,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
-                .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"))
+                .andExpect(jsonPath("$.error.code").value("CONTEXT_FETCH_FAILED"))
                 .andExpect(jsonPath("$.error.message").value("A connection error occurred. Please try again later."));
     }
 }
