@@ -77,7 +77,7 @@ public class ExternalContextService {
             throw new ExternalApiException("All context sources failed to fetch.");
         }
 
-        return new ContextPreviewResponse(sources, null);
+        return new ContextPreviewResponse(sources);
     }
 
     // -------------------------------------------------------------------------

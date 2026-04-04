@@ -1,11 +1,8 @@
 package org.jh.batchbridge.dto.response.external;
 
-import org.springframework.lang.Nullable;
-
 import java.util.List;
 
 public record ContextPreviewResponse(
-        List<SourceResult> sources,
-        @Nullable ToastMessage toast
+        List<SourceResult> sources
 ) {
 }

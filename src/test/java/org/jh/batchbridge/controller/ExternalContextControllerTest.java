@@ -36,7 +36,7 @@ class ExternalContextControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void preview_AllSuccess_Returns200WithToastSuccess() throws Exception {
+    void preview_AllSuccess_Returns200() throws Exception {
         ContextPreviewRequest request = new ContextPreviewRequest(
                 "https://github.com/org/repo/pull/1",
                 List.of("DEV-58"),
@@ -47,7 +47,7 @@ class ExternalContextControllerTest {
                 new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, "[GitHub PR] #1: fix: bug", null),
                 new SourceResult(SourceType.JIRA, "DEV-58", "Some task", SourceStatus.SUCCESS, "[Jira] DEV-58: Some task", null)
         );
-        ContextPreviewResponse response = new ContextPreviewResponse(sources, null);
+        ContextPreviewResponse response = new ContextPreviewResponse(sources);
 
         when(externalContextService.preview(any(ContextPreviewRequest.class))).thenReturn(response);
 
@@ -62,12 +62,11 @@ class ExternalContextControllerTest {
                 .andExpect(jsonPath("$.data.sources[1].type").value("JIRA"))
                 .andExpect(jsonPath("$.data.sources[1].status").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.sources[1].formattedText").value("[Jira] DEV-58: Some task"))
-                .andExpect(jsonPath("$.data.toast.title").isNotEmpty())
-                .andExpect(jsonPath("$.data.toast.description").isNotEmpty());
+                .andExpect(jsonPath("$.data.toast").doesNotExist());
     }
 
     @Test
-    void preview_PartialFailure_Returns200WithToastPartial() throws Exception {
+    void preview_PartialFailure_Returns200() throws Exception {
         ContextPreviewRequest request = new ContextPreviewRequest(
                 "https://github.com/org/repo/pull/1",
                 null,
@@ -78,7 +77,7 @@ class ExternalContextControllerTest {
                 new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, "[GitHub PR] #1: fix: bug", null),
                 new SourceResult(SourceType.CONFLUENCE, "491521", null, SourceStatus.FAILED, null, "Not found")
         );
-        ContextPreviewResponse response = new ContextPreviewResponse(sources, null);
+        ContextPreviewResponse response = new ContextPreviewResponse(sources);
 
         when(externalContextService.preview(any(ContextPreviewRequest.class))).thenReturn(response);
 
@@ -90,7 +89,7 @@ class ExternalContextControllerTest {
                 .andExpect(jsonPath("$.data.sources[1].status").value("FAILED"))
                 .andExpect(jsonPath("$.data.sources[1].formattedText").doesNotExist())
                 .andExpect(jsonPath("$.data.sources[1].error").value("Not found"))
-                .andExpect(jsonPath("$.data.toast.title").isNotEmpty());
+                .andExpect(jsonPath("$.data.toast").doesNotExist());
     }
 
     @Test
