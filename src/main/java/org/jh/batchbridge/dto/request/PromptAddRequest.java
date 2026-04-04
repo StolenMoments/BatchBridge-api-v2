@@ -8,9 +8,10 @@ public record PromptAddRequest(
         @Nullable String label,
         @Nullable String systemPrompt,
         @NotBlank(message = "userPrompt is required") String userPrompt,
+        @Nullable String contextText,
         @Nullable List<PromptAttachmentRequest> attachments
 ) {
     public PromptAddRequest(String label, String systemPrompt, String userPrompt) {
-        this(label, systemPrompt, userPrompt, null);
+        this(label, systemPrompt, userPrompt, null, null);
     }
 }
