@@ -55,7 +55,8 @@ class ExternalContextServiceTest {
         RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
         ResponseSpec responseSpec = mock(ResponseSpec.class);
 
-        // API call order: body(Map) = PR detail, body(List) 1st = commits, body(List) 2nd = files
+        // Both the PR detail call and the files call go through the same mock chain.
+        // body(Map.class) returns PR detail; body(List.class) returns files list.
         when(githubRestClient.get()).thenReturn(uriSpec);
         when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
         when(uriSpec.retrieve()).thenReturn(responseSpec);
@@ -63,10 +64,9 @@ class ExternalContextServiceTest {
                 "title", "fix: critical bug",
                 "body", "This PR fixes a critical bug."
         ));
-        when(responseSpec.body(List.class)).thenReturn(
-                List.of(Map.of("sha", "abc1234567", "commit", Map.of("message", "fix: critical bug"))),
-                List.of(Map.of("filename", "Foo.java", "additions", 5, "deletions", 2, "patch", "@@ -1 +1 @@\n+fix"))
-        );
+        when(responseSpec.body(List.class)).thenReturn(List.of(
+                Map.of("filename", "Foo.java", "additions", 5, "deletions", 2, "patch", "@@ -1 +1 @@\n+fix")
+        ));
 
         ContextPreviewResponse response = externalContextService.preview(request);
 
@@ -76,8 +76,6 @@ class ExternalContextServiceTest {
         assertThat(response.sources().get(0).title()).isEqualTo("fix: critical bug");
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
         assertThat(response.contextText()).contains("[GitHub PR] #42: fix: critical bug");
-        assertThat(response.contextText()).contains("## Commits");
-        assertThat(response.contextText()).contains("abc1234: fix: critical bug");
         assertThat(response.contextText()).contains("--- context ---");
     }
 

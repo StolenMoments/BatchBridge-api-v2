@@ -110,17 +110,12 @@ public class ExternalContextService {
             String title = pr.get("title") instanceof String s ? s : "";
             String body = pr.get("body") instanceof String s ? s : "";
 
-            List<Map<String, Object>> commits = githubRestClient.get()
-                    .uri("/repos/{owner}/{repo}/pulls/{number}/commits", owner, repo, number)
-                    .retrieve()
-                    .body(List.class);
-
             List<Map<String, Object>> files = githubRestClient.get()
                     .uri("/repos/{owner}/{repo}/pulls/{number}/files", owner, repo, number)
                     .retrieve()
                     .body(List.class);
 
-            String contextBlock = buildGithubPrBlock(number, title, body, commits, files);
+            String contextBlock = buildGithubPrBlock(number, title, body, files);
             return FetchResult.success(SourceType.GITHUB_PR, number, title, contextBlock);
         } catch (Exception e) {
             log.error("Failed to fetch GitHub PR: {}", prUrl, e);
@@ -128,27 +123,12 @@ public class ExternalContextService {
         }
     }
 
-    private String buildGithubPrBlock(String number, String title, String body,
-                                      @Nullable List<Map<String, Object>> commits,
-                                      @Nullable List<Map<String, Object>> files) {
+    private String buildGithubPrBlock(String number, String title, String body, @Nullable List<Map<String, Object>> files) {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("[GitHub PR] #%s: %s%n", number, title));
         if (StringUtils.hasText(body)) {
             sb.append(body).append("\n");
         }
-
-        if (commits != null && !commits.isEmpty()) {
-            sb.append("\n## Commits\n");
-            for (Map<String, Object> commit : commits) {
-                if (commit.get("sha") instanceof String sha
-                        && commit.get("commit") instanceof Map<?, ?> commitMap
-                        && commitMap.get("message") instanceof String message) {
-                    String firstLine = message.split("\n")[0];
-                    sb.append(String.format("- %s: %s%n", sha.substring(0, 7), firstLine));
-                }
-            }
-        }
-
         sb.append("\n## Changed Files\n");
         if (files != null) {
             for (Map<String, Object> file : files) {
