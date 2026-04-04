@@ -50,7 +50,7 @@ public class PromptService {
         BatchPrompt prompt = BatchPrompt.create(
                 resolveLabel(request.label(), batch),
                 request.systemPrompt(),
-                combineUserPrompt(request.userPrompt(), request.contextText()),
+                request.userPrompt(),
                 attachments
         );
 
@@ -82,8 +82,7 @@ public class PromptService {
 
         String label = request.label() != null ? request.label() : prompt.getLabel();
         String systemPrompt = request.systemPrompt() != null ? request.systemPrompt() : prompt.getSystemPrompt();
-        String baseUserPrompt = request.userPrompt() != null ? request.userPrompt() : prompt.getUserPrompt();
-        String userPrompt = combineUserPrompt(baseUserPrompt, request.contextText());
+        String userPrompt = request.userPrompt() != null ? request.userPrompt() : prompt.getUserPrompt();
 
         List<PromptAttachment> attachments = null;
         if (request.attachments() != null) {
@@ -113,13 +112,6 @@ public class PromptService {
         BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
                 .orElseThrow(() -> new PromptNotFoundException(promptId));
         return BatchPromptResponse.from(prompt);
-    }
-
-    private String combineUserPrompt(String userPrompt, String contextText) {
-        if (contextText == null || contextText.isBlank()) {
-            return userPrompt;
-        }
-        return userPrompt + "\n" + contextText;
     }
 
     private String resolveLabel(String label, Batch batch) {

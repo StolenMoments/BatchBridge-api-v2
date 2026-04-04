@@ -61,7 +61,7 @@ class PromptControllerTest {
 
     @Test
     void updatePrompt_Returns200() throws Exception {
-        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user", null, null);
+        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user", null);
         BatchPromptResponse response = new BatchPromptResponse(10L, "updated-label", "system", "updated-user", PromptStatus.PENDING, null, null);
 
         when(promptService.updatePrompt(eq(1L), eq(10L), any(PromptUpdateRequest.class))).thenReturn(response);

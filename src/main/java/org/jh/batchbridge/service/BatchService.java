@@ -83,24 +83,15 @@ public class BatchService {
                     .toList();
         }
 
-        String userPrompt = combineUserPrompt(promptPayload.userPrompt(), promptPayload.contextText());
-
         BatchPrompt prompt = BatchPrompt.create(
                 promptLabel,
                 promptPayload.systemPrompt(),
-                userPrompt,
+                promptPayload.userPrompt(),
                 attachments
         );
         batch.addPrompt(prompt);
 
         return BatchDetailResponse.from(batchRepository.save(batch));
-    }
-
-    private String combineUserPrompt(String userPrompt, String contextText) {
-        if (contextText == null || contextText.isBlank()) {
-            return userPrompt;
-        }
-        return userPrompt + "\n" + contextText;
     }
 
     @Transactional(readOnly = true)
