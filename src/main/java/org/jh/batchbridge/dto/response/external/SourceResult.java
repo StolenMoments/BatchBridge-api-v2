@@ -7,6 +7,7 @@ public record SourceResult(
         String id,
         @Nullable String title,
         SourceStatus status,
+        @Nullable String formattedText,
         @Nullable String error
 ) {
 }

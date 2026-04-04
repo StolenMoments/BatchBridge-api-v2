@@ -50,6 +50,6 @@ public class ExternalContextController {
             toast = new ToastMessage(title, desc);
         }
 
-        return new ContextPreviewResponse(preview.contextText(), preview.sources(), toast);
+        return new ContextPreviewResponse(preview.sources(), toast);
     }
 }

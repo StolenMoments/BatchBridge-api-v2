@@ -68,6 +68,7 @@ public class ExternalContextService {
                 .map(r -> new SourceResult(
                         r.type(), r.id(), r.title(),
                         r.isSuccess() ? SourceStatus.SUCCESS : SourceStatus.FAILED,
+                        r.contextBlock(),
                         r.error()))
                 .toList();
 
@@ -76,8 +77,7 @@ public class ExternalContextService {
             throw new ExternalApiException("All context sources failed to fetch.");
         }
 
-        String contextText = buildContextText(fetchResults);
-        return new ContextPreviewResponse(contextText, sources, null);
+        return new ContextPreviewResponse(sources, null);
     }
 
     // -------------------------------------------------------------------------
@@ -247,16 +247,6 @@ public class ExternalContextService {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private String buildContextText(List<FetchResult> results) {
-        StringBuilder sb = new StringBuilder("--- context ---\n");
-        for (FetchResult r : results) {
-            if (r.isSuccess()) {
-                sb.append(r.contextBlock()).append("\n");
-            }
-        }
-        return sb.toString().stripTrailing();
-    }
 
     @SuppressWarnings("unchecked")
     private String adfToPlainText(Object node) {

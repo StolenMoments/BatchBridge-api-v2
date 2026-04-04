@@ -75,8 +75,8 @@ class ExternalContextServiceTest {
         assertThat(response.sources().get(0).id()).isEqualTo("42");
         assertThat(response.sources().get(0).title()).isEqualTo("fix: critical bug");
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
-        assertThat(response.contextText()).contains("[GitHub PR] #42: fix: critical bug");
-        assertThat(response.contextText()).contains("--- context ---");
+        assertThat(response.sources().get(0).formattedText()).contains("[GitHub PR] #42: fix: critical bug");
+        assertThat(response.sources().get(0).formattedText()).contains("## Changed Files");
     }
 
     @Test
@@ -100,6 +100,7 @@ class ExternalContextServiceTest {
 
         assertThat(response.sources()).hasSize(2);
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.FAILED);
+        assertThat(response.sources().get(0).formattedText()).isNull();
         assertThat(response.sources().get(0).error()).contains("Invalid GitHub PR URL format");
         assertThat(response.sources().get(1).status()).isEqualTo(SourceStatus.SUCCESS);
     }
@@ -124,6 +125,7 @@ class ExternalContextServiceTest {
         ContextPreviewResponse response = serviceWithoutGithub.preview(request);
 
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.FAILED);
+        assertThat(response.sources().get(0).formattedText()).isNull();
         assertThat(response.sources().get(0).error()).contains("GitHub client is not configured");
         assertThat(response.sources().get(1).status()).isEqualTo(SourceStatus.SUCCESS);
     }
@@ -165,10 +167,10 @@ class ExternalContextServiceTest {
         assertThat(response.sources().get(0).id()).isEqualTo("DEV-123");
         assertThat(response.sources().get(0).title()).isEqualTo("Implement feature X");
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
-        assertThat(response.contextText()).contains("[Jira] DEV-123: Implement feature X");
-        assertThat(response.contextText()).contains("Status: In Progress");
-        assertThat(response.contextText()).contains("Type: Story");
-        assertThat(response.contextText()).contains("Feature description");
+        assertThat(response.sources().get(0).formattedText()).contains("[Jira] DEV-123: Implement feature X");
+        assertThat(response.sources().get(0).formattedText()).contains("Status: In Progress");
+        assertThat(response.sources().get(0).formattedText()).contains("Type: Story");
+        assertThat(response.sources().get(0).formattedText()).contains("Feature description");
     }
 
     @Test
@@ -208,8 +210,8 @@ class ExternalContextServiceTest {
         assertThat(response.sources().get(0).type()).isEqualTo(SourceType.CONFLUENCE);
         assertThat(response.sources().get(0).title()).isEqualTo("Architecture Overview");
         assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
-        assertThat(response.contextText()).contains("[Confluence] Architecture Overview");
-        assertThat(response.contextText()).contains("This is the architecture overview.");
+        assertThat(response.sources().get(0).formattedText()).contains("[Confluence] Architecture Overview");
+        assertThat(response.sources().get(0).formattedText()).contains("This is the architecture overview.");
     }
 
     // -------------------------------------------------------------------------
@@ -240,28 +242,4 @@ class ExternalContextServiceTest {
                 .hasMessageContaining("At least one source");
     }
 
-    // -------------------------------------------------------------------------
-    // contextText format
-    // -------------------------------------------------------------------------
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void preview_ContextTextStartsWithContextBlock() {
-        ContextPreviewRequest request = new ContextPreviewRequest(null, List.of("DEV-1"), null);
-
-        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
-        ResponseSpec responseSpec = mock(ResponseSpec.class);
-        when(atlassianRestClient.get()).thenReturn(uriSpec);
-        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
-        when(uriSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.body(Map.class)).thenReturn(Map.of(
-                "fields", Map.of("summary", "Task",
-                        "status", Map.of("name", "Done"),
-                        "issuetype", Map.of("name", "Task"))
-        ));
-
-        ContextPreviewResponse response = externalContextService.preview(request);
-
-        assertThat(response.contextText()).startsWith("--- context ---");
-    }
 }

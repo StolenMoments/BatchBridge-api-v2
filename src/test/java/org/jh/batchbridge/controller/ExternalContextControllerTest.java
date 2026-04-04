@@ -44,10 +44,10 @@ class ExternalContextControllerTest {
         );
 
         List<SourceResult> sources = List.of(
-                new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, null),
-                new SourceResult(SourceType.JIRA, "DEV-58", "Some task", SourceStatus.SUCCESS, null)
+                new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, "[GitHub PR] #1: fix: bug", null),
+                new SourceResult(SourceType.JIRA, "DEV-58", "Some task", SourceStatus.SUCCESS, "[Jira] DEV-58: Some task", null)
         );
-        ContextPreviewResponse response = new ContextPreviewResponse("--- context ---\n...", sources, null);
+        ContextPreviewResponse response = new ContextPreviewResponse(sources, null);
 
         when(externalContextService.preview(any(ContextPreviewRequest.class))).thenReturn(response);
 
@@ -56,11 +56,12 @@ class ExternalContextControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.contextText").value("--- context ---\n..."))
                 .andExpect(jsonPath("$.data.sources[0].type").value("GITHUB_PR"))
                 .andExpect(jsonPath("$.data.sources[0].status").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.sources[0].formattedText").value("[GitHub PR] #1: fix: bug"))
                 .andExpect(jsonPath("$.data.sources[1].type").value("JIRA"))
                 .andExpect(jsonPath("$.data.sources[1].status").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.sources[1].formattedText").value("[Jira] DEV-58: Some task"))
                 .andExpect(jsonPath("$.data.toast.title").isNotEmpty())
                 .andExpect(jsonPath("$.data.toast.description").isNotEmpty());
     }
@@ -74,10 +75,10 @@ class ExternalContextControllerTest {
         );
 
         List<SourceResult> sources = List.of(
-                new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, null),
-                new SourceResult(SourceType.CONFLUENCE, "491521", null, SourceStatus.FAILED, "Not found")
+                new SourceResult(SourceType.GITHUB_PR, "1", "fix: bug", SourceStatus.SUCCESS, "[GitHub PR] #1: fix: bug", null),
+                new SourceResult(SourceType.CONFLUENCE, "491521", null, SourceStatus.FAILED, null, "Not found")
         );
-        ContextPreviewResponse response = new ContextPreviewResponse("--- context ---\n...", sources, null);
+        ContextPreviewResponse response = new ContextPreviewResponse(sources, null);
 
         when(externalContextService.preview(any(ContextPreviewRequest.class))).thenReturn(response);
 
@@ -87,6 +88,7 @@ class ExternalContextControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.sources[1].status").value("FAILED"))
+                .andExpect(jsonPath("$.data.sources[1].formattedText").doesNotExist())
                 .andExpect(jsonPath("$.data.sources[1].error").value("Not found"))
                 .andExpect(jsonPath("$.data.toast.title").isNotEmpty());
     }
@@ -105,7 +107,7 @@ class ExternalContextControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"));
+                .andExpect(jsonPath("$.error.code").value("CONTEXT_FETCH_FAILED"));
     }
 
     @Test

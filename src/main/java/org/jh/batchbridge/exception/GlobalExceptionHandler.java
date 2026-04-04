@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
         String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());
-        return buildError(HttpStatus.BAD_GATEWAY, "EXTERNAL_API_ERROR", message);
+        return buildError(HttpStatus.BAD_GATEWAY, "CONTEXT_FETCH_FAILED", message);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
