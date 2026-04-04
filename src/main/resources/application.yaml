@@ -1,6 +1,10 @@
 server:
   port: 8080
 spring:
+  messages:
+    basename: messages
+    encoding: UTF-8
+    cache-duration: -1
   datasource:
     url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:batch_bridge}
     username: ${DB_USERNAME}
