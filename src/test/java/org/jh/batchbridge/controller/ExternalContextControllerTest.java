@@ -33,7 +33,7 @@ class ExternalContextControllerTest {
     @Test
     void previewGithub_ReturnsSuccess() throws Exception {
         GithubPreviewRequest request = new GithubPreviewRequest("owner", "repo", "path", null);
-        ExternalContextPreviewResponse response = new ExternalContextPreviewResponse("label", "content");
+        ExternalContextPreviewResponse response = new ExternalContextPreviewResponse("label", "content", null);
 
         when(externalContextService.previewGithub(any(GithubPreviewRequest.class))).thenReturn(response);
 
@@ -43,13 +43,15 @@ class ExternalContextControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.label").value("label"))
-                .andExpect(jsonPath("$.data.content").value("content"));
+                .andExpect(jsonPath("$.data.content").value("content"))
+                .andExpect(jsonPath("$.data.toast.title").isNotEmpty())
+                .andExpect(jsonPath("$.data.toast.description").isNotEmpty());
     }
 
     @Test
     void previewJira_ReturnsSuccess() throws Exception {
         JiraPreviewRequest request = new JiraPreviewRequest("DEV-123");
-        ExternalContextPreviewResponse response = new ExternalContextPreviewResponse("label", "content");
+        ExternalContextPreviewResponse response = new ExternalContextPreviewResponse("label", "content", null);
 
         when(externalContextService.previewJira(any(JiraPreviewRequest.class))).thenReturn(response);
 
@@ -59,7 +61,9 @@ class ExternalContextControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.label").value("label"))
-                .andExpect(jsonPath("$.data.content").value("content"));
+                .andExpect(jsonPath("$.data.content").value("content"))
+                .andExpect(jsonPath("$.data.toast.title").isNotEmpty())
+                .andExpect(jsonPath("$.data.toast.description").isNotEmpty());
     }
 
     @Test

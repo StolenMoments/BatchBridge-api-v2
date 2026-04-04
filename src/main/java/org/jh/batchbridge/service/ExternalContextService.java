@@ -54,7 +54,8 @@ public class ExternalContextService {
 
             return new ExternalContextPreviewResponse(
                     String.format("GitHub: %s/%s/%s", request.owner(), request.repo(), request.path()),
-                    decoded
+                    decoded,
+                    null
             );
         } catch (Exception e) {
             log.error("Failed to fetch content from GitHub", e);
@@ -100,7 +101,8 @@ public class ExternalContextService {
 
             return new ExternalContextPreviewResponse(
                     String.format("JIRA: %s", request.issueKey()),
-                    content
+                    content,
+                    null
             );
         } catch (Exception e) {
             log.error("Failed to fetch issue from JIRA", e);

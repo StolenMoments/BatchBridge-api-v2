@@ -68,12 +68,22 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void returns502ForExternalApiException() throws Exception {
-        mockMvc.perform(get("/test/external-api"))
+    void returns502ForExternalApiException_Korean() throws Exception {
+        mockMvc.perform(get("/test/external-api").header("Accept-Language", "ko"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
                 .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"))
-                .andExpect(jsonPath("$.error.message").value("External API call failed."));
+                .andExpect(jsonPath("$.error.message").value("서버와의 연결에 문제가 발생했습니다. 잠시 후 다시 시도해주세요."));
+    }
+
+    @Test
+    void returns502ForExternalApiException_English() throws Exception {
+        mockMvc.perform(get("/test/external-api").header("Accept-Language", "en"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("EXTERNAL_API_ERROR"))
+                .andExpect(jsonPath("$.error.message").value("A connection error occurred. Please try again later."));
     }
 }

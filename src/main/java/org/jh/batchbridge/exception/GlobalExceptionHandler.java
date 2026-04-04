@@ -3,6 +3,8 @@ package org.jh.batchbridge.exception;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,6 +19,12 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final MessageSource messageSource;
+
+    public GlobalExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     @ExceptionHandler(BatchNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleBatchNotFound(BatchNotFoundException e) {
@@ -55,7 +63,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
-        return buildError(HttpStatus.BAD_GATEWAY, "EXTERNAL_API_ERROR", e.getMessage());
+        String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());
+        return buildError(HttpStatus.BAD_GATEWAY, "EXTERNAL_API_ERROR", message);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
