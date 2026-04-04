@@ -20,3 +20,8 @@ batch-bridge:
     claude: test
     grok: test
     gemini: test
+external-context:
+  github-token:
+  atlassian-base-url:
+  atlassian-email:
+  atlassian-api-token:
