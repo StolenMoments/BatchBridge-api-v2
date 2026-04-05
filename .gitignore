@@ -40,4 +40,5 @@ out/
 .junie
 AGENTS.md
 GEMINI.md
-CLAUDE.md
+CLAUDE.
+application-local.yaml
