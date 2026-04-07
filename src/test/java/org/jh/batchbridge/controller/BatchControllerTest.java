@@ -3,8 +3,10 @@ package org.jh.batchbridge.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +27,7 @@ import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
 import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.dto.response.ModelResponse;
+import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.BatchNotSyncedException;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
 import org.jh.batchbridge.service.BatchService;
@@ -159,6 +162,22 @@ class BatchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.prompts[0].responseContent").value("result"));
+    }
+
+    @Test
+    void deleteBatch_Returns204() throws Exception {
+        mockMvc.perform(delete("/api/batches/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteBatch_Returns404_WhenBatchNotFound() throws Exception {
+        doThrow(new BatchNotFoundException(99L)).when(batchService).deleteBatch(99L);
+
+        mockMvc.perform(delete("/api/batches/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_FOUND"));
     }
 
     @Test

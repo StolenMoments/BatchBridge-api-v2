@@ -62,6 +62,7 @@ public class Batch {
 
     private LocalDateTime submittedAt;
     private LocalDateTime completedAt;
+    private LocalDateTime deletedAt;
 
     @OneToMany(mappedBy = "batch", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -90,12 +91,25 @@ public class Batch {
     }
 
     public boolean isEditable() {
-        return this.status == BatchStatus.DRAFT;
+        return this.status == BatchStatus.DRAFT && this.deletedAt == null;
+    }
+
+    public void delete() {
+        if (this.status != BatchStatus.DRAFT) {
+            throw new IllegalStateException("Only DRAFT batches can be deleted.");
+        }
+        if (this.deletedAt != null) {
+            return;
+        }
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void submit(String externalBatchId) {
         if (this.status != BatchStatus.DRAFT) {
             throw new IllegalStateException("Only DRAFT batches can be submitted.");
+        }
+        if (this.deletedAt != null) {
+            throw new IllegalStateException("Deleted batches cannot be submitted.");
         }
         this.status = BatchStatus.IN_PROGRESS;
         this.externalBatchId = externalBatchId;

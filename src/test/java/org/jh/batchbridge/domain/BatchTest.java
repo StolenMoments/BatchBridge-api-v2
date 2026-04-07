@@ -9,16 +9,45 @@ import org.junit.jupiter.api.Test;
 
 class BatchTest {
 
-    @DisplayName("isEditable returns true only when status is DRAFT")
+    @DisplayName("isEditable returns true only when status is DRAFT and not deleted")
     @Test
     void isEditable() {
         Batch batch = Batch.createDraft("test", "claude");
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.DRAFT);
         assertThat(batch.isEditable()).isTrue();
 
-        batch.submit("ext-123");
-        assertThat(batch.getStatus()).isEqualTo(BatchStatus.IN_PROGRESS);
+        batch.delete();
         assertThat(batch.isEditable()).isFalse();
+        assertThat(batch.getDeletedAt()).isNotNull();
+
+        Batch batch2 = Batch.createDraft("test", "claude");
+        batch2.submit("ext-123");
+        assertThat(batch2.getStatus()).isEqualTo(BatchStatus.IN_PROGRESS);
+        assertThat(batch2.isEditable()).isFalse();
+    }
+
+    @DisplayName("delete() sets deletedAt only when DRAFT")
+    @Test
+    void delete() {
+        Batch batch = Batch.createDraft("test", "claude");
+        batch.delete();
+        assertThat(batch.getDeletedAt()).isNotNull();
+
+        Batch batchInProgress = Batch.createDraft("test", "claude");
+        batchInProgress.submit("ext-123");
+        assertThatThrownBy(batchInProgress::delete)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @DisplayName("submit() throws exception if deleted")
+    @Test
+    void submit_deleted() {
+        Batch batch = Batch.createDraft("test", "claude");
+        batch.delete();
+
+        assertThatThrownBy(() -> batch.submit("ext-123"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Deleted batches cannot be submitted.");
     }
 
     @DisplayName("submit updates status and externalBatchId")

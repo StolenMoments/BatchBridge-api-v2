@@ -115,13 +115,28 @@ public class BatchService {
     @Transactional(readOnly = true)
     public BatchDetailResponse getDetail(Long id) {
         Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
         return BatchDetailResponse.from(batch);
     }
 
     @Transactional
+    public void deleteBatch(Long id) {
+        Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
+                .orElseThrow(() -> new BatchNotFoundException(id));
+
+        if (!batch.isEditable()) {
+            throw new BatchNotEditableException("Only DRAFT batches can be deleted.");
+        }
+
+        batch.delete();
+    }
+
+    @Transactional
     public BatchSubmitResponse submitBatch(Long id) {
         Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
 
         if (!batch.isEditable()) {
@@ -143,6 +158,7 @@ public class BatchService {
     @Transactional
     public BatchDetailResponse syncStatus(Long id) {
         Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
 
         if (batch.getStatus() != BatchStatus.IN_PROGRESS) {
