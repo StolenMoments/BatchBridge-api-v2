@@ -136,6 +136,7 @@ public class BatchService {
     @Transactional
     public BatchSubmitResponse submitBatch(Long id) {
         Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
 
         if (!batch.isEditable()) {
@@ -157,6 +158,7 @@ public class BatchService {
     @Transactional
     public BatchDetailResponse syncStatus(Long id) {
         Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
 
         if (batch.getStatus() != BatchStatus.IN_PROGRESS) {

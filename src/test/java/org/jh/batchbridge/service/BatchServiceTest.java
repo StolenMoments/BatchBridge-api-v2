@@ -207,6 +207,34 @@ class BatchServiceTest {
     }
 
     @Test
+    void submitBatch_ThrowsNotFound_WhenBatchIsDeleted() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.delete();
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.submitBatch(1L))
+                .isInstanceOf(BatchNotFoundException.class);
+
+        verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
+    void syncStatus_ThrowsNotFound_WhenBatchIsDeleted() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.delete();
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.syncStatus(1L))
+                .isInstanceOf(BatchNotFoundException.class);
+
+        verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
     void submitBatch_SubmitsToExternalAndReturnsInProgressResponse() {
         Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
         ReflectionTestUtils.setField(batch, "id", 1L);
