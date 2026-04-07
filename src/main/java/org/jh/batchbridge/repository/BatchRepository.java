@@ -29,6 +29,7 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
                     from Batch b
                     left join b.prompts p
                     where (:status is null or b.status = :status)
+                    and b.deletedAt is null
                     group by
                         b.id,
                         b.label,
@@ -42,6 +43,7 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
                     select count(b)
                     from Batch b
                     where (:status is null or b.status = :status)
+                    and b.deletedAt is null
                     """
     )
     Page<BatchSummaryView> findBatchSummaries(@Param("status") BatchStatus status, Pageable pageable);
