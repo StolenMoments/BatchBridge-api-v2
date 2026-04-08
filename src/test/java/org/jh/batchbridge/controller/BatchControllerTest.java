@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -19,6 +20,7 @@ import org.jh.batchbridge.config.ModelListProperties;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
+import org.jh.batchbridge.dto.request.BatchUpdateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchPromptResponse;
@@ -28,7 +30,9 @@ import org.jh.batchbridge.dto.response.BatchSummaryResponse;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.exception.BatchNotFoundException;
+import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotSyncedException;
+import org.jh.batchbridge.exception.UnsupportedModelException;
 import org.jh.batchbridge.exception.GlobalExceptionHandler;
 import org.jh.batchbridge.service.BatchService;
 import org.junit.jupiter.api.Test;
@@ -239,6 +243,70 @@ class BatchControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("BATCH_NOT_SYNCED"));
+    }
+
+    @Test
+    void updateBatch_Returns200() throws Exception {
+        BatchUpdateRequest request = new BatchUpdateRequest("GPT 비교 테스트 v2", "claude-opus-4-6");
+        BatchDetailResponse response = new BatchDetailResponse(
+                1L, "GPT 비교 테스트 v2", "claude-opus-4-6", BatchStatus.DRAFT,
+                2, null, null, LocalDateTime.now(), null, null, List.of()
+        );
+
+        when(batchService.updateBatch(eq(1L), any(BatchUpdateRequest.class))).thenReturn(response);
+
+        mockMvc.perform(patch("/api/batches/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.label").value("GPT 비교 테스트 v2"))
+                .andExpect(jsonPath("$.data.model").value("claude-opus-4-6"));
+    }
+
+    @Test
+    void updateBatch_WhenNotEditable_Returns409() throws Exception {
+        BatchUpdateRequest request = new BatchUpdateRequest("new label", null);
+
+        when(batchService.updateBatch(eq(1L), any(BatchUpdateRequest.class)))
+                .thenThrow(new BatchNotEditableException("Only DRAFT batches can be edited."));
+
+        mockMvc.perform(patch("/api/batches/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_EDITABLE"));
+    }
+
+    @Test
+    void updateBatch_WhenUnsupportedModel_Returns400() throws Exception {
+        BatchUpdateRequest request = new BatchUpdateRequest(null, "unknown-model");
+
+        when(batchService.updateBatch(eq(1L), any(BatchUpdateRequest.class)))
+                .thenThrow(new UnsupportedModelException("unknown-model"));
+
+        mockMvc.perform(patch("/api/batches/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODEL"));
+    }
+
+    @Test
+    void updateBatch_WhenBatchNotFound_Returns404() throws Exception {
+        BatchUpdateRequest request = new BatchUpdateRequest("new label", null);
+
+        when(batchService.updateBatch(eq(99L), any(BatchUpdateRequest.class)))
+                .thenThrow(new BatchNotFoundException(99L));
+
+        mockMvc.perform(patch("/api/batches/99")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("BATCH_NOT_FOUND"));
     }
 
     @Test

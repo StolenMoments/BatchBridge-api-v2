@@ -94,6 +94,18 @@ public class Batch {
         return this.status == BatchStatus.DRAFT && this.deletedAt == null;
     }
 
+    public void update(String label, String model) {
+        if (this.status != BatchStatus.DRAFT || this.deletedAt != null) {
+            throw new IllegalStateException("Only DRAFT batches can be edited.");
+        }
+        if (label != null) {
+            this.label = label;
+        }
+        if (model != null) {
+            this.model = model;
+        }
+    }
+
     public void delete() {
         if (this.status != BatchStatus.DRAFT) {
             throw new IllegalStateException("Only DRAFT batches can be deleted.");
