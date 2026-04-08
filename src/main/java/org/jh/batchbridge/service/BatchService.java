@@ -14,6 +14,7 @@ import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
+import org.jh.batchbridge.dto.request.BatchUpdateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
@@ -117,6 +118,31 @@ public class BatchService {
         Batch batch = batchRepository.findById(id)
                 .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
+        return BatchDetailResponse.from(batch);
+    }
+
+    @Transactional
+    public BatchDetailResponse updateBatch(Long id, BatchUpdateRequest request) {
+        String label = (request.label() != null && !request.label().isBlank()) ? request.label() : null;
+        String model = request.model();
+
+        if (label == null && model == null) {
+            throw new IllegalArgumentException("At least one of label or model must be provided.");
+        }
+
+        Batch batch = batchRepository.findById(id)
+                .filter(b -> b.getDeletedAt() == null)
+                .orElseThrow(() -> new BatchNotFoundException(id));
+
+        if (!batch.isEditable()) {
+            throw new BatchNotEditableException("Only DRAFT batches can be edited.");
+        }
+
+        if (model != null) {
+            batchApiClientFactory.getAdapter(model);
+        }
+
+        batch.update(label, model);
         return BatchDetailResponse.from(batch);
     }
 

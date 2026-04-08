@@ -20,6 +20,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,6 +93,18 @@ public class Batch {
 
     public boolean isEditable() {
         return this.status == BatchStatus.DRAFT && this.deletedAt == null;
+    }
+
+    public void update(String label, String model) {
+        if (this.status != BatchStatus.DRAFT || this.deletedAt != null) {
+            throw new BatchNotEditableException("Only DRAFT batches can be edited.");
+        }
+        if (label != null) {
+            this.label = label;
+        }
+        if (model != null) {
+            this.model = model;
+        }
     }
 
     public void delete() {

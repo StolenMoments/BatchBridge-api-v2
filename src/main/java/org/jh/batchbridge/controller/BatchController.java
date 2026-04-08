@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Min;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.dto.ApiResponse;
 import org.jh.batchbridge.dto.request.BatchCreateRequest;
+import org.jh.batchbridge.dto.request.BatchUpdateRequest;
 import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
@@ -19,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,6 +62,13 @@ public class BatchController {
     @Operation(summary = "Get batch detail", description = "Get batch details by batch ID.")
     public ApiResponse<BatchDetailResponse> getDetail(@PathVariable Long id) {
         BatchDetailResponse response = batchService.getDetail(id);
+        return ApiResponse.success(response);
+    }
+
+    @PatchMapping("/batches/{id}")
+    @Operation(summary = "Update batch", description = "Partially update a draft batch's label and/or model.")
+    public ApiResponse<BatchDetailResponse> updateBatch(@PathVariable Long id, @RequestBody BatchUpdateRequest request) {
+        BatchDetailResponse response = batchService.updateBatch(id, request);
         return ApiResponse.success(response);
     }
 
