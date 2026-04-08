@@ -123,6 +123,13 @@ public class BatchService {
 
     @Transactional
     public BatchDetailResponse updateBatch(Long id, BatchUpdateRequest request) {
+        String label = (request.label() != null && !request.label().isBlank()) ? request.label() : null;
+        String model = request.model();
+
+        if (label == null && model == null) {
+            throw new IllegalArgumentException("At least one of label or model must be provided.");
+        }
+
         Batch batch = batchRepository.findById(id)
                 .filter(b -> b.getDeletedAt() == null)
                 .orElseThrow(() -> new BatchNotFoundException(id));
@@ -131,11 +138,11 @@ public class BatchService {
             throw new BatchNotEditableException("Only DRAFT batches can be edited.");
         }
 
-        if (request.model() != null) {
-            batchApiClientFactory.getAdapter(request.model());
+        if (model != null) {
+            batchApiClientFactory.getAdapter(model);
         }
 
-        batch.update(request.label(), request.model());
+        batch.update(label, model);
         return BatchDetailResponse.from(batch);
     }
 

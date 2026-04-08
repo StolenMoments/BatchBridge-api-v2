@@ -310,6 +310,19 @@ class BatchControllerTest {
     }
 
     @Test
+    void updateBatch_WhenBothFieldsNull_Returns400() throws Exception {
+        when(batchService.updateBatch(eq(1L), any(BatchUpdateRequest.class)))
+                .thenThrow(new IllegalArgumentException("At least one of label or model must be provided."));
+
+        mockMvc.perform(patch("/api/batches/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"label\":null,\"model\":null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     void getModels_ReturnsSupportedModels() throws Exception {
         when(modelService.getAllModels()).thenReturn(List.of(
                 new ModelInfo("claude-3-5-sonnet-20240620", "Claude 3.5 Sonnet")
