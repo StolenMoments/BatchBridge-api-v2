@@ -51,9 +51,8 @@ public class PromptTemplateService {
 
     @Transactional
     public void delete(Long id) {
-        if (!promptTemplateRepository.existsById(id)) {
-            throw new PromptTemplateNotFoundException(id);
-        }
-        promptTemplateRepository.deleteById(id);
+        PromptTemplate template = promptTemplateRepository.findById(id)
+                .orElseThrow(() -> new PromptTemplateNotFoundException(id));
+        promptTemplateRepository.delete(template);
     }
 }

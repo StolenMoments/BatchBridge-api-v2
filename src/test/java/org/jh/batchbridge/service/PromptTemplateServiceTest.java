@@ -108,16 +108,17 @@ class PromptTemplateServiceTest {
 
     @Test
     void delete_Success() {
-        when(promptTemplateRepository.existsById(1L)).thenReturn(true);
+        PromptTemplate template = buildTemplate(1L);
+        when(promptTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
 
         promptTemplateService.delete(1L);
 
-        verify(promptTemplateRepository).deleteById(1L);
+        verify(promptTemplateRepository).delete(template);
     }
 
     @Test
     void delete_NotFound_ThrowsException() {
-        when(promptTemplateRepository.existsById(99L)).thenReturn(false);
+        when(promptTemplateRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> promptTemplateService.delete(99L))
                 .isInstanceOf(PromptTemplateNotFoundException.class);
