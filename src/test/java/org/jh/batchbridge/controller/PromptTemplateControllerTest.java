@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.jh.batchbridge.dto.request.PromptTemplateCreateRequest;
 import org.jh.batchbridge.dto.request.PromptTemplateUpdateRequest;
 import org.jh.batchbridge.dto.response.PromptTemplateResponse;
@@ -182,6 +184,40 @@ class PromptTemplateControllerTest {
     }
 
     @Test
+    void createTemplate_NameTooLong_Returns400() throws Exception {
+        PromptTemplateCreateRequest request = new PromptTemplateCreateRequest(
+                repeat("a", 101),
+                "Java review template",
+                "You are a senior engineer.",
+                "Review the following code."
+        );
+
+        mockMvc.perform(post("/api/templates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void updateTemplate_DescriptionTooLong_Returns400() throws Exception {
+        PromptTemplateUpdateRequest request = new PromptTemplateUpdateRequest(
+                "review-updated",
+                repeat("d", 301),
+                "You are an expert reviewer.",
+                "Apply the updated prompt."
+        );
+
+        mockMvc.perform(put("/api/templates/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     void deleteTemplate_NotFound_Returns404() throws Exception {
         doThrow(new PromptTemplateNotFoundException(999L)).when(promptTemplateService).delete(999L);
 
@@ -189,5 +225,11 @@ class PromptTemplateControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("TEMPLATE_NOT_FOUND"));
+    }
+
+    private String repeat(String value, int count) {
+        return IntStream.range(0, count)
+                .mapToObj(index -> value)
+                .collect(Collectors.joining());
     }
 }
