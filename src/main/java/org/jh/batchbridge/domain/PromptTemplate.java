@@ -52,4 +52,11 @@ public class PromptTemplate {
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    public void update(String name, String description, String systemPrompt, String userPrompt) {
+        this.name = name;
+        this.description = description;
+        this.systemPrompt = systemPrompt;
+        this.userPrompt = userPrompt;
+    }
 }

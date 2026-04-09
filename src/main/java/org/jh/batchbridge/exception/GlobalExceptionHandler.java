@@ -51,6 +51,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.NOT_FOUND, "PROMPT_NOT_FOUND", e.getMessage());
     }
 
+    @ExceptionHandler(PromptTemplateNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePromptTemplateNotFound(PromptTemplateNotFoundException e) {
+        return buildError(HttpStatus.NOT_FOUND, "TEMPLATE_NOT_FOUND", e.getMessage());
+    }
+
     @ExceptionHandler(BatchResultNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleBatchResultNotFound(BatchResultNotFoundException e) {
         return buildError(HttpStatus.NOT_FOUND, "BATCH_RESULT_NOT_FOUND", e.getMessage());
