@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -39,6 +40,7 @@ public class XAIBatchAdapter implements BatchApiPort {
     private static final Logger log = LoggerFactory.getLogger(XAIBatchAdapter.class);
     private static final String MODEL_PREFIX = "grok-";
     private static final int RESULTS_PAGE_SIZE = 100;
+    static final int MAX_PAGE_COUNT = 500;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -88,7 +90,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                     .retrieve()
                     .body(XAIBatchResponse.class);
 
-            if (createdBatch == null || createdBatch.batchId() == null || createdBatch.batchId().isBlank()) {
+            if (createdBatch == null || !StringUtils.hasText(createdBatch.batchId())) {
                 throw new ExternalApiException("xAI batch create response does not contain batch_id");
             }
 
@@ -100,8 +102,8 @@ public class XAIBatchAdapter implements BatchApiPort {
 
             return new ExternalBatchId(createdBatch.batchId());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("xAI API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new ExternalApiException("Failed to submit xAI batch: " + e.getResponseBodyAsString(), e);
+            log.error("xAI API error: {}", e.getStatusCode());
+            throw new ExternalApiException("Failed to submit xAI batch: " + e.getStatusCode(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to submit xAI batch", e);
         }
@@ -121,8 +123,8 @@ public class XAIBatchAdapter implements BatchApiPort {
 
             return new BatchStatusResult(toBatchStatus(response.state()), null);
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("xAI API error fetching status: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new ExternalApiException("Failed to fetch xAI batch status: " + e.getResponseBodyAsString(), e);
+            log.error("xAI API error fetching status: {}", e.getStatusCode());
+            throw new ExternalApiException("Failed to fetch xAI batch status: " + e.getStatusCode(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to fetch xAI batch status: " + externalBatchId.value(), e);
         }
@@ -140,8 +142,14 @@ public class XAIBatchAdapter implements BatchApiPort {
         try {
             Map<Long, PromptResult> results = new LinkedHashMap<>();
             String paginationToken = null;
+            int pageCount = 0;
 
             while (true) {
+                if (++pageCount > MAX_PAGE_COUNT) {
+                    throw new ExternalApiException(
+                            "xAI batch results exceeded maximum page count (" + MAX_PAGE_COUNT + ") for id: "
+                            + externalBatchId.value());
+                }
                 String currentPaginationToken = paginationToken;
                 XAIResultsPage page = restClient.get()
                         .uri(uriBuilder -> {
@@ -160,14 +168,14 @@ public class XAIBatchAdapter implements BatchApiPort {
                 }
 
                 results.putAll(parseResultsPage(page.results(), expectedPromptIds));
-                if (page.paginationToken() == null || page.paginationToken().isBlank()) {
+                if (!StringUtils.hasText(page.paginationToken())) {
                     return results;
                 }
                 paginationToken = page.paginationToken();
             }
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("xAI API error fetching results: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new ExternalApiException("Failed to fetch xAI batch results: " + e.getResponseBodyAsString(), e);
+            log.error("xAI API error fetching results: {}", e.getStatusCode());
+            throw new ExternalApiException("Failed to fetch xAI batch results: " + e.getStatusCode(), e);
         } catch (RestClientException e) {
             throw new ExternalApiException("Failed to fetch xAI batch results: " + externalBatchId.value(), e);
         }
@@ -189,7 +197,7 @@ public class XAIBatchAdapter implements BatchApiPort {
     List<Map<String, Object>> buildUserInput(BatchSubmitRequest.PromptItem prompt) {
         List<Map<String, Object>> input = new ArrayList<>();
 
-        if (prompt.systemPrompt() != null && !prompt.systemPrompt().isBlank()) {
+        if (StringUtils.hasText(prompt.systemPrompt())) {
             input.add(Map.of("role", "system", "content", prompt.systemPrompt()));
         }
 
@@ -204,7 +212,7 @@ public class XAIBatchAdapter implements BatchApiPort {
 
         Map<Long, PromptResult> parsed = new LinkedHashMap<>();
         for (XAIResultItem result : results) {
-            if (result == null || result.batchRequestId() == null || result.batchRequestId().isBlank()) {
+            if (result == null || !StringUtils.hasText(result.batchRequestId())) {
                 continue;
             }
 
@@ -232,7 +240,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                 promptResult = new PromptResult(true, extractText(response.chatGetCompletion()), null);
             } else {
                 String errorMessage = result.errorMessage();
-                if (errorMessage == null || errorMessage.isBlank()) {
+                if (!StringUtils.hasText(errorMessage)) {
                     errorMessage = "Unknown error";
                 }
                 promptResult = new PromptResult(false, null, errorMessage);
@@ -256,11 +264,11 @@ public class XAIBatchAdapter implements BatchApiPort {
         if (pending > 0) {
             return ExternalBatchStatus.IN_PROGRESS;
         }
-        if (success > 0) {
-            return ExternalBatchStatus.COMPLETED;
-        }
         if (error > 0 || cancelled > 0) {
             return ExternalBatchStatus.FAILED;
+        }
+        if (success > 0) {
+            return ExternalBatchStatus.COMPLETED;
         }
         return ExternalBatchStatus.IN_PROGRESS;
     }
@@ -287,9 +295,9 @@ public class XAIBatchAdapter implements BatchApiPort {
         StringBuilder userContent = new StringBuilder("<attachments>\n");
         for (BatchSubmitRequest.AttachmentItem attachment : prompt.attachments()) {
             userContent.append("<attachment name=\"")
-                    .append(attachment.fileName())
+                    .append(escapeXml(attachment.fileName()))
                     .append("\">")
-                    .append(attachment.fileContent())
+                    .append(escapeXml(attachment.fileContent()))
                     .append("</attachment>\n");
         }
         userContent.append("</attachments>\n\n").append(prompt.userPrompt());
@@ -312,11 +320,14 @@ public class XAIBatchAdapter implements BatchApiPort {
             List<String> texts = new ArrayList<>();
             for (JsonNode item : content) {
                 String text = item.path("text").asText(null);
-                if (text != null && !text.isBlank()) {
+                if (StringUtils.hasText(text)) {
                     texts.add(text);
                 }
             }
-            return String.join("\n", texts);
+            if (!texts.isEmpty()) {
+                return String.join("\n", texts);
+            }
+            // texts가 비어있으면 하단 JSON fallback으로 fall-through
         }
 
         try {
@@ -324,6 +335,16 @@ public class XAIBatchAdapter implements BatchApiPort {
         } catch (Exception e) {
             return content.toString();
         }
+    }
+
+    private static String escapeXml(String value) {
+        if (value == null) return "";
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 
     private int zeroIfNull(Integer value) {
@@ -336,6 +357,9 @@ public class XAIBatchAdapter implements BatchApiPort {
     ) {
     }
 
+    // TODO(cleanup): XAIBatchState, XAIResultItem은 내부 구현 세부사항이므로 private으로 변경이 바람직합니다.
+    //   현재 테스트(XAIBatchAdapterTest)가 동일 패키지에서 직접 생성하기 때문에 package-private 상태입니다.
+    //   추후 테스트를 MockRestServiceServer 기반 HTTP 응답 방식으로 리팩터링할 때 private으로 전환하세요.
     record XAIBatchState(
             @JsonProperty("num_requests") Integer numRequests,
             @JsonProperty("num_pending") Integer numPending,

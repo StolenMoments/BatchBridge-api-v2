@@ -76,6 +76,24 @@ class XAIBatchAdapterTest {
     }
 
     @Test
+    void buildUserInputEscapesXmlSpecialCharsInAttachments() {
+        BatchSubmitRequest.PromptItem prompt = new BatchSubmitRequest.PromptItem(
+                1L,
+                null,
+                "user message",
+                List.of(new BatchSubmitRequest.AttachmentItem("<evil>", "content with & \"quotes\""))
+        );
+
+        String content = (String) adapter.buildUserInput(prompt).getLast().get("content");
+
+        assertThat(content)
+                .contains("&lt;evil&gt;")
+                .doesNotContain("<evil>")
+                .contains("content with &amp; &quot;quotes&quot;")
+                .doesNotContain("& \"quotes\"");
+    }
+
+    @Test
     void buildUserInputUsesRawPromptWhenNoAttachmentsOrSystemPrompt() {
         BatchSubmitRequest.PromptItem prompt = new BatchSubmitRequest.PromptItem(
                 1L,
@@ -130,7 +148,7 @@ class XAIBatchAdapterTest {
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 10, 0, 0)))
                 .isEqualTo(ExternalBatchStatus.COMPLETED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 8, 2, 0)))
-                .isEqualTo(ExternalBatchStatus.COMPLETED);
+                .isEqualTo(ExternalBatchStatus.FAILED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 0, 10, 0)))
                 .isEqualTo(ExternalBatchStatus.FAILED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 0, 0, 0)))
@@ -202,7 +220,7 @@ class XAIBatchAdapterTest {
     }
 
     @Test
-    void fetchStatusReturnsCompletedWhenSuccessExists() {
+    void fetchStatusReturnsFailedWhenAnyRequestFailed() {
         server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
@@ -219,7 +237,28 @@ class XAIBatchAdapterTest {
                         """, MediaType.APPLICATION_JSON));
 
         assertThat(adapter.fetchStatus(new ExternalBatchId("batch_123")))
-                .isEqualTo(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
+                .isEqualTo(new BatchStatusResult(ExternalBatchStatus.FAILED, null));
+    }
+
+    @Test
+    void fetchStatusReturnsCompletedWhenAllSucceeded() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "batch_id": "batch_123",
+                          "state": {
+                            "num_requests": 2,
+                            "num_pending": 0,
+                            "num_success": 2,
+                            "num_error": 0,
+                            "num_cancelled": 0
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchStatus(new ExternalBatchId("batch_123")).status())
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
     }
 
     @Test

@@ -355,9 +355,9 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                         userContent.append("<attachments>\n");
                         for (BatchSubmitRequest.AttachmentItem attachment : prompt.attachments()) {
                             userContent.append("<attachment name=\"")
-                                    .append(attachment.fileName())
+                                    .append(escapeXml(attachment.fileName()))
                                     .append("\">\n")
-                                    .append(attachment.fileContent())
+                                    .append(escapeXml(attachment.fileContent()))
                                     .append("\n</attachment>\n");
                         }
                         userContent.append("</attachments>\n\n");
@@ -485,6 +485,16 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         }
 
         return results;
+    }
+
+    private static String escapeXml(String value) {
+        if (value == null) return "";
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 
     private String extractText(JsonNode contentNode) {
