@@ -242,4 +242,343 @@ class ExternalContextServiceTest {
                 .hasMessageContaining("At least one source");
     }
 
+    // -------------------------------------------------------------------------
+    // GitHub PR — 추가 분기 케이스
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_GithubPr_EmptyBody_OmitsBodySection() {
+        ContextPreviewRequest request = new ContextPreviewRequest(
+                "https://github.com/owner/repo/pull/10", null, null);
+
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(githubRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("title", "empty body PR", "body", ""));
+        when(responseSpec.body(List.class)).thenReturn(List.of());
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
+        assertThat(response.sources().get(0).formattedText()).contains("[GitHub PR] #10: empty body PR");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_GithubPr_NullResponse_ReturnsFailure() {
+        ContextPreviewRequest request = new ContextPreviewRequest(
+                "https://github.com/owner/repo/pull/99", null, null);
+
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(githubRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(null);
+
+        assertThatThrownBy(() -> externalContextService.preview(request))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("All context sources failed");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_GithubPr_NullFiles_ShowsEmptyChangedFilesSection() {
+        ContextPreviewRequest request = new ContextPreviewRequest(
+                "https://github.com/owner/repo/pull/5", null, null);
+
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(githubRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("title", "pr title", "body", "body text"));
+        when(responseSpec.body(List.class)).thenReturn(null);
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
+        assertThat(response.sources().get(0).formattedText()).contains("## Changed Files");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_GithubPr_FileWithoutPatch_OmitsPatch() {
+        ContextPreviewRequest request = new ContextPreviewRequest(
+                "https://github.com/owner/repo/pull/7", null, null);
+
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(githubRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("title", "no patch", "body", "desc"));
+        when(responseSpec.body(List.class)).thenReturn(List.of(
+                Map.of("filename", "NoChange.java", "additions", 0, "deletions", 0)
+                // patch 필드 없음
+        ));
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
+        assertThat(response.sources().get(0).formattedText()).contains("NoChange.java");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_GithubPr_LongPatch_IsTruncated() {
+        ContextPreviewRequest request = new ContextPreviewRequest(
+                "https://github.com/owner/repo/pull/8", null, null);
+
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        // 201줄짜리 patch 생성 (MAX_PATCH_LINES = 200)
+        String longPatch = "line\n".repeat(201);
+
+        when(githubRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString(), anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("title", "big diff", "body", ""));
+        when(responseSpec.body(List.class)).thenReturn(List.of(
+                Map.of("filename", "Big.java", "additions", 201, "deletions", 0, "patch", longPatch)
+        ));
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources().get(0).formattedText()).contains("(truncated)");
+    }
+
+    // -------------------------------------------------------------------------
+    // Jira — 추가 분기 케이스
+    // -------------------------------------------------------------------------
+
+    @Test
+    void preview_Jira_NullResponse_ReturnsFailure() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(null);
+
+        ContextPreviewRequest request = new ContextPreviewRequest(null, List.of("DEV-404"), null);
+
+        assertThatThrownBy(() -> externalContextService.preview(request))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("All context sources failed");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Jira_InvalidFields_ReturnsFailure() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        // fields 가 Map이 아닌 값
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("fields", "not-a-map"));
+
+        ContextPreviewRequest request = new ContextPreviewRequest(null, List.of("DEV-BAD"), null);
+
+        assertThatThrownBy(() -> externalContextService.preview(request))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("All context sources failed");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Jira_NoDescription_OmitsDescriptionSection() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of(
+                "fields", Map.of(
+                        "summary", "No desc issue",
+                        "status", Map.of("name", "Open"),
+                        "issuetype", Map.of("name", "Bug")
+                        // description 없음
+                )
+        ));
+
+        ContextPreviewResponse response = externalContextService.preview(
+                new ContextPreviewRequest(null, List.of("DEV-200"), null));
+
+        assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
+        assertThat(response.sources().get(0).formattedText()).contains("[Jira] DEV-200: No desc issue");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Jira_AdfHeadingType_AppendsNewline() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of(
+                "fields", Map.of(
+                        "summary", "Heading test",
+                        "status", Map.of("name", "Open"),
+                        "issuetype", Map.of("name", "Story"),
+                        "description", Map.of(
+                                "type", "doc",
+                                "content", List.of(
+                                        Map.of("type", "heading",
+                                                "content", List.of(Map.of("type", "text", "text", "Section Title")))
+                                )
+                        )
+                )
+        ));
+
+        ContextPreviewResponse response = externalContextService.preview(
+                new ContextPreviewRequest(null, List.of("DEV-300"), null));
+
+        assertThat(response.sources().get(0).formattedText()).contains("Section Title");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Jira_AdfListItemAndCodeBlock_AppendsNewlines() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of(
+                "fields", Map.of(
+                        "summary", "Mixed types",
+                        "status", Map.of("name", "Open"),
+                        "issuetype", Map.of("name", "Task"),
+                        "description", Map.of(
+                                "type", "doc",
+                                "content", List.of(
+                                        Map.of("type", "listItem",
+                                                "content", List.of(Map.of("type", "text", "text", "item text"))),
+                                        Map.of("type", "blockquote",
+                                                "content", List.of(Map.of("type", "text", "text", "quoted"))),
+                                        Map.of("type", "codeBlock",
+                                                "content", List.of(Map.of("type", "text", "text", "code()")))
+                                )
+                        )
+                )
+        ));
+
+        ContextPreviewResponse response = externalContextService.preview(
+                new ContextPreviewRequest(null, List.of("DEV-301"), null));
+
+        assertThat(response.sources().get(0).formattedText()).contains("item text");
+        assertThat(response.sources().get(0).formattedText()).contains("quoted");
+        assertThat(response.sources().get(0).formattedText()).contains("code()");
+    }
+
+    // -------------------------------------------------------------------------
+    // Confluence — 추가 분기 케이스
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Confluence_NullResponse_ReturnsFailure() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(any(java.util.function.Function.class))).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(null);
+
+        ContextPreviewRequest request = new ContextPreviewRequest(null, null, List.of("99999"));
+
+        assertThatThrownBy(() -> externalContextService.preview(request))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("All context sources failed");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_Confluence_NoBodyStorage_EmptyText() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(any(java.util.function.Function.class))).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of("title", "No Body Page"));
+        // body 키 없음 → plainText = ""
+
+        ContextPreviewResponse response = externalContextService.preview(
+                new ContextPreviewRequest(null, null, List.of("11111")));
+
+        assertThat(response.sources().get(0).status()).isEqualTo(SourceStatus.SUCCESS);
+        assertThat(response.sources().get(0).formattedText()).contains("[Confluence] No Body Page");
+    }
+
+    // -------------------------------------------------------------------------
+    // preview() — blank 아이템 스킵 케이스
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_JiraKeys_BlankItemsSkipped() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of(
+                "fields", Map.of(
+                        "summary", "Valid issue",
+                        "status", Map.of("name", "Open"),
+                        "issuetype", Map.of("name", "Bug")
+                )
+        ));
+
+        // blank key "  " 는 스킵, "DEV-1" 만 처리
+        ContextPreviewRequest request = new ContextPreviewRequest(null, List.of("  ", "DEV-1"), null);
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources()).hasSize(1);
+        assertThat(response.sources().get(0).id()).isEqualTo("DEV-1");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void preview_ConfluencePageIds_BlankItemsSkipped() {
+        RequestHeadersUriSpec uriSpec = mock(RequestHeadersUriSpec.class);
+        ResponseSpec responseSpec = mock(ResponseSpec.class);
+
+        when(atlassianRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(any(java.util.function.Function.class))).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(Map.class)).thenReturn(Map.of(
+                "title", "Valid Page",
+                "body", Map.of("storage", Map.of("value", "<p>Content</p>"))
+        ));
+
+        // blank pageId "" 는 스킵, "12345" 만 처리
+        ContextPreviewRequest request = new ContextPreviewRequest(null, null, List.of("", "12345"));
+
+        ContextPreviewResponse response = externalContextService.preview(request);
+
+        assertThat(response.sources()).hasSize(1);
+        assertThat(response.sources().get(0).type()).isEqualTo(SourceType.CONFLUENCE);
+    }
+
 }

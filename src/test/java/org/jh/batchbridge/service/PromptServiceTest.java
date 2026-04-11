@@ -177,4 +177,69 @@ class PromptServiceTest {
         assertThatThrownBy(() -> promptService.getPrompt(1L, 10L))
                 .isInstanceOf(PromptNotFoundException.class);
     }
+
+    @Test
+    void updatePrompt_KeepsExistingValues_WhenFieldsAreNull() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("original-label")
+                .systemPrompt("original-sys")
+                .userPrompt("original-user")
+                .build();
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
+
+        BatchPromptResponse response = promptService.updatePrompt(1L, 10L, request);
+
+        assertThat(response.label()).isEqualTo("original-label");
+        assertThat(response.systemPrompt()).isEqualTo("original-sys");
+        assertThat(response.userPrompt()).isEqualTo("original-user");
+    }
+
+    @Test
+    void updatePrompt_BatchNotEditable_ThrowsException() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(completedBatch)
+                .label("label")
+                .build();
+
+        when(promptRepository.findByIdAndBatchId(10L, 2L)).thenReturn(Optional.of(prompt));
+
+        assertThatThrownBy(() -> promptService.updatePrompt(2L, 10L,
+                new PromptUpdateRequest("new", null, "new", null)))
+                .isInstanceOf(BatchNotEditableException.class);
+    }
+
+    @Test
+    void deletePrompt_BatchNotEditable_ThrowsException() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(completedBatch)
+                .build();
+
+        when(promptRepository.findByIdAndBatchId(10L, 2L)).thenReturn(Optional.of(prompt));
+
+        assertThatThrownBy(() -> promptService.deletePrompt(2L, 10L))
+                .isInstanceOf(BatchNotEditableException.class);
+    }
+
+    @Test
+    void addPrompt_DefaultLabel_WhenLabelIsNull() {
+        PromptAddRequest request = new PromptAddRequest(null, "sys", "user");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
+        when(promptRepository.save(any(BatchPrompt.class))).thenAnswer(invocation -> {
+            BatchPrompt p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "id", 100L);
+            return p;
+        });
+
+        BatchPromptResponse response = promptService.addPrompt(1L, request);
+
+        // 배치에 프롬프트가 없으므로 "프롬프트 1"이 기본값
+        assertThat(response.label()).isEqualTo("프롬프트 1");
+    }
 }

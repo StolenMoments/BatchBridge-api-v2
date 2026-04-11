@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/lee/.claude/skills/atlassian/**)",
+      "Bash(python3 atlassian.py --service confluence --action read --target_id 491540)",
+      "Bash(python atlassian.py --service confluence --action read --target_id 491540)",
+      "mcp__claude_ai_Atlassian__getAccessibleAtlassianResources",
+      "mcp__claude_ai_Atlassian__getConfluencePage",
+      "mcp__claude_ai_Atlassian__updateConfluencePage"
+    ]
+  }
+}

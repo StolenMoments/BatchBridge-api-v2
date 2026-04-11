@@ -8,10 +8,10 @@ import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.exception.UnsupportedModelException;
 import org.junit.jupiter.api.Test;
@@ -36,6 +36,40 @@ class BatchApiClientFactoryTest {
         assertThatThrownBy(() -> factory.getAdapter("gemini-2.0-flash"))
                 .isInstanceOf(UnsupportedModelException.class)
                 .hasMessageContaining("gemini-2.0-flash");
+    }
+
+    @Test
+    void throwsUnsupportedModelExceptionForNullModel() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(new StubAdapter("claude")));
+
+        assertThatThrownBy(() -> factory.getAdapter(null))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void throwsUnsupportedModelExceptionForBlankModel() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(new StubAdapter("claude")));
+
+        assertThatThrownBy(() -> factory.getAdapter("   "))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void normalizesCaseWhenMatchingAdapter() {
+        BatchApiPort claudeAdapter = new StubAdapter("claude-");
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(claudeAdapter));
+
+        BatchApiPort result = factory.getAdapter("CLAUDE-3-sonnet");
+
+        assertThat(result).isSameAs(claudeAdapter);
+    }
+
+    @Test
+    void throwsUnsupportedModelWhenAdapterListIsEmpty() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of());
+
+        assertThatThrownBy(() -> factory.getAdapter("claude-3"))
+                .isInstanceOf(UnsupportedModelException.class);
     }
 
     @Test
