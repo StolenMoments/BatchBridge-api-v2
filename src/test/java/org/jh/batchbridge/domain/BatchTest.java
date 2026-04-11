@@ -153,6 +153,114 @@ class BatchTest {
         assertThat(prompt1.getErrorMessage()).isEqualTo("error");
     }
 
+    @DisplayName("update sets label and model for DRAFT batch")
+    @Test
+    void update_UpdatesLabelAndModel() {
+        Batch batch = Batch.createDraft("old-label", "old-model");
+
+        batch.update("new-label", "new-model");
+
+        assertThat(batch.getLabel()).isEqualTo("new-label");
+        assertThat(batch.getModel()).isEqualTo("new-model");
+    }
+
+    @DisplayName("update with only label updates label, keeps model")
+    @Test
+    void update_OnlyLabel_KeepsModel() {
+        Batch batch = Batch.createDraft("old-label", "keep-model");
+
+        batch.update("new-label", null);
+
+        assertThat(batch.getLabel()).isEqualTo("new-label");
+        assertThat(batch.getModel()).isEqualTo("keep-model");
+    }
+
+    @DisplayName("update with only model updates model, keeps label")
+    @Test
+    void update_OnlyModel_KeepsLabel() {
+        Batch batch = Batch.createDraft("keep-label", "old-model");
+
+        batch.update(null, "new-model");
+
+        assertThat(batch.getLabel()).isEqualTo("keep-label");
+        assertThat(batch.getModel()).isEqualTo("new-model");
+    }
+
+    @DisplayName("update throws exception when batch is deleted")
+    @Test
+    void update_DeletedBatch_ThrowsException() {
+        Batch batch = Batch.createDraft("label", "model");
+        batch.delete();
+
+        assertThatThrownBy(() -> batch.update("new", null))
+                .isInstanceOf(org.jh.batchbridge.exception.BatchNotEditableException.class);
+    }
+
+    @DisplayName("update throws exception when batch is not DRAFT")
+    @Test
+    void update_InProgressBatch_ThrowsException() {
+        Batch batch = Batch.createDraft("label", "model");
+        batch.submit("ext-1");
+
+        assertThatThrownBy(() -> batch.update("new", null))
+                .isInstanceOf(org.jh.batchbridge.exception.BatchNotEditableException.class);
+    }
+
+    @DisplayName("complete with null results map marks all prompts as failed")
+    @Test
+    void complete_NullResultsMap_AllPromptsMarkedFailed() {
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt prompt = BatchPrompt.create("p1", "sys", "user");
+        batch.addPrompt(prompt);
+        setField(prompt, "id", 1L);
+        batch.submit("ext-1");
+
+        batch.complete(null);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(prompt.getStatus()).isEqualTo(PromptStatus.FAILED);
+        assertThat(prompt.getErrorMessage()).isEqualTo("No result found for prompt");
+    }
+
+    @DisplayName("fail is idempotent when batch is already FAILED")
+    @Test
+    void fail_AlreadyFailed_IsIdempotent() {
+        Batch batch = Batch.createDraft("test", "claude");
+        batch.submit("ext-1");
+        batch.fail("first error");
+
+        batch.fail("second error");
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(batch.getErrorMessage()).isEqualTo("first error");
+    }
+
+    @DisplayName("fail is idempotent when batch is already COMPLETED")
+    @Test
+    void fail_AlreadyCompleted_IsIdempotent() {
+        Batch batch = Batch.createDraft("test", "claude");
+        BatchPrompt prompt = BatchPrompt.create("p1", "sys", "user");
+        batch.addPrompt(prompt);
+        setField(prompt, "id", 1L);
+        batch.submit("ext-1");
+        batch.complete(Map.of(1L, new PromptResult(true, "ok", null)));
+
+        batch.fail("late error");
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    }
+
+    @DisplayName("delete is idempotent when already deleted")
+    @Test
+    void delete_AlreadyDeleted_IsIdempotent() {
+        Batch batch = Batch.createDraft("test", "claude");
+        batch.delete();
+
+        batch.delete(); // 두 번 호출해도 예외 없음
+
+        assertThat(batch.getDeletedAt()).isNotNull();
+    }
+
     private void setField(Object target, String fieldName, Object value) {
         try {
             Class<?> type = target.getClass();

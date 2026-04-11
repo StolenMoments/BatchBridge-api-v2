@@ -53,6 +53,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     private final ObjectMapper objectMapper;
     private final int defaultMaxTokens;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ClaudeBatchAdapter(
             @Value("${batch-bridge.api-keys.claude}") String apiKey,
             @Value("${batch-bridge.claude.beta-header:message-batches-2024-09-24}") String betaHeader,
@@ -72,6 +73,13 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 .defaultHeader("anthropic-beta", betaHeader)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
+        this.objectMapper = objectMapper;
+        this.defaultMaxTokens = defaultMaxTokens;
+    }
+
+    /** 테스트용 생성자 — 외부에서 RestClient를 주입받아 HTTP 호출 없이 단위 테스트 가능. */
+    ClaudeBatchAdapter(RestClient restClient, int defaultMaxTokens, ObjectMapper objectMapper) {
+        this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.defaultMaxTokens = defaultMaxTokens;
     }
@@ -240,7 +248,8 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         }
     }
 
-    private Map<Long, PromptResult> parseResultsFromStream(ClientHttpResponse response, Set<Long> expectedPromptIds) throws IOException {
+    /** 테스트용으로 package-private 선언. */
+    Map<Long, PromptResult> parseResultsFromStream(ClientHttpResponse response, Set<Long> expectedPromptIds) throws IOException {
         Map<Long, PromptResult> results = new HashMap<>();
         int skippedLines = 0;
         int lineNumber = 0;

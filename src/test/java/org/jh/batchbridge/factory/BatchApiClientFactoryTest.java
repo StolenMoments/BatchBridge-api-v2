@@ -38,6 +38,40 @@ class BatchApiClientFactoryTest {
                 .hasMessageContaining("gemini-2.0-flash");
     }
 
+    @Test
+    void throwsUnsupportedModelExceptionForNullModel() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(new StubAdapter("claude")));
+
+        assertThatThrownBy(() -> factory.getAdapter(null))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void throwsUnsupportedModelExceptionForBlankModel() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(new StubAdapter("claude")));
+
+        assertThatThrownBy(() -> factory.getAdapter("   "))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void normalizesCaseWhenMatchingAdapter() {
+        BatchApiPort claudeAdapter = new StubAdapter("claude-");
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(claudeAdapter));
+
+        BatchApiPort result = factory.getAdapter("CLAUDE-3-sonnet");
+
+        assertThat(result).isSameAs(claudeAdapter);
+    }
+
+    @Test
+    void throwsUnsupportedModelWhenAdapterListIsEmpty() {
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of());
+
+        assertThatThrownBy(() -> factory.getAdapter("claude-3"))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
     private record StubAdapter(String prefix) implements BatchApiPort {
 
         @Override

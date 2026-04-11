@@ -168,6 +168,56 @@ class BatchStatusSyncWorkerTest {
         assertThat(normalPrompt.getStatus()).isEqualTo(PromptStatus.COMPLETED);
     }
 
+    @Test
+    void skipsWhenBatchNotFound() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        worker.syncOne(99L);
+
+        verifyNoInteractions(factory);
+    }
+
+    @Test
+    void skipsWhenBatchIsNotInProgress() {
+        Batch batch = Batch.createDraft("label", "claude");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        // DRAFT 상태 — IN_PROGRESS 아님
+        when(repository.findById(1L)).thenReturn(Optional.of(batch));
+
+        worker.syncOne(1L);
+
+        verifyNoInteractions(factory);
+    }
+
+    @Test
+    void doesNothingWhenExternalStatusIsInProgress() {
+        Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        when(repository.findById(1L)).thenReturn(Optional.of(batch));
+        when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
+        when(adapter.fetchStatus(any(ExternalBatchId.class)))
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.IN_PROGRESS, null));
+
+        worker.syncOne(1L);
+
+        // COMPLETED도 FAILED도 아닌 상태 유지
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.IN_PROGRESS);
+        verify(adapter).fetchStatus(any(ExternalBatchId.class));
+    }
+
+    @Test
+    void usesDefaultErrorMessageWhenFetchStatusReturnsNullMessage() {
+        Batch batch = inProgressBatch("claude-3-5-sonnet-20240620", "external-1");
+        when(repository.findById(1L)).thenReturn(Optional.of(batch));
+        when(factory.getAdapter(batch.getModel())).thenReturn(adapter);
+        when(adapter.fetchStatus(any(ExternalBatchId.class)))
+                .thenReturn(new BatchStatusResult(ExternalBatchStatus.FAILED, null));
+
+        worker.syncOne(1L);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(batch.getErrorMessage()).isEqualTo("External batch processing failed");
+    }
+
     private Batch inProgressBatch(String model, String externalBatchId) {
         Batch batch = Batch.createDraft("label", model);
         ReflectionTestUtils.setField(batch, "id", 1L);

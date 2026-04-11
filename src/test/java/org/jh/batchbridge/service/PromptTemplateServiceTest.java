@@ -123,4 +123,28 @@ class PromptTemplateServiceTest {
         assertThatThrownBy(() -> promptTemplateService.delete(99L))
                 .isInstanceOf(PromptTemplateNotFoundException.class);
     }
+
+    @Test
+    void getAll_ReturnsEmptyList_WhenNoTemplates() {
+        when(promptTemplateRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of());
+
+        List<PromptTemplateResponse> result = promptTemplateService.getAll();
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void update_WithNullFields_SetsAllFieldsToNull() {
+        PromptTemplate template = buildTemplate(1L);
+        PromptTemplateUpdateRequest request = new PromptTemplateUpdateRequest(null, null, null, null);
+        when(promptTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+
+        // PromptTemplate.update()는 null-check 없이 직접 덮어씀
+        PromptTemplateResponse result = promptTemplateService.update(1L, request);
+
+        assertThat(result.name()).isNull();
+        assertThat(result.description()).isNull();
+        assertThat(result.systemPrompt()).isNull();
+        assertThat(result.userPrompt()).isNull();
+    }
 }

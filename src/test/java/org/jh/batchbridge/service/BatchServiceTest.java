@@ -344,6 +344,137 @@ class BatchServiceTest {
     }
 
     @Test
+    void updateBatch_UpdatesLabel_WhenOnlyLabelProvided() {
+        Batch batch = Batch.createDraft("old-label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        // model이 null이므로 getAdapter 호출 없음
+
+        BatchDetailResponse response = batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest("new-label", null));
+
+        assertThat(response.label()).isEqualTo("new-label");
+    }
+
+    @Test
+    void updateBatch_UpdatesModel_WhenOnlyModelProvided() {
+        Batch batch = Batch.createDraft("label", "claude-old");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-new")).thenReturn(batchApiPort);
+
+        BatchDetailResponse response = batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest(null, "claude-new"));
+
+        assertThat(response.model()).isEqualTo("claude-new");
+    }
+
+    @Test
+    void updateBatch_ThrowsIllegalArgument_WhenBothNull() {
+        assertThatThrownBy(() -> batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest(null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one");
+    }
+
+    @Test
+    void updateBatch_ThrowsNotFound_WhenDeleted() {
+        Batch batch = Batch.createDraft("label", "claude");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.delete();
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest("new", null)))
+                .isInstanceOf(BatchNotFoundException.class);
+    }
+
+    @Test
+    void updateBatch_ThrowsNotEditable_WhenNotDraft() {
+        Batch batch = Batch.createDraft("label", "claude");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.submit("ext-1");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest("new", null)))
+                .isInstanceOf(BatchNotEditableException.class);
+    }
+
+    @Test
+    void updateBatch_ThrowsUnsupportedModel_WhenModelNotSupported() {
+        Batch batch = Batch.createDraft("label", "claude");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("gpt-4")).thenThrow(new UnsupportedModelException("gpt-4"));
+
+        assertThatThrownBy(() -> batchService.updateBatch(1L, new org.jh.batchbridge.dto.request.BatchUpdateRequest(null, "gpt-4")))
+                .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void syncStatus_WhenNotInProgress_ReturnsCurrentStatus() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        // DRAFT 상태 — IN_PROGRESS가 아니므로 외부 호출 없이 즉시 반환
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        BatchDetailResponse response = batchService.syncStatus(1L);
+
+        assertThat(response.status()).isEqualTo(BatchStatus.DRAFT);
+        verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
+    void syncStatus_WhenFailed_FailsBatch() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.submit("ext-1");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.fetchStatus(any())).thenReturn(
+                new org.jh.batchbridge.dto.external.BatchStatusResult(
+                        org.jh.batchbridge.dto.external.ExternalBatchStatus.FAILED, "external error"));
+
+        batchService.syncStatus(1L);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(batch.getErrorMessage()).isEqualTo("external error");
+    }
+
+    @Test
+    void syncStatus_WhenFailed_WithNullErrorMessage_UsesDefaultMessage() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        batch.submit("ext-1");
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.fetchStatus(any())).thenReturn(
+                new org.jh.batchbridge.dto.external.BatchStatusResult(
+                        org.jh.batchbridge.dto.external.ExternalBatchStatus.FAILED, null));
+
+        batchService.syncStatus(1L);
+
+        assertThat(batch.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(batch.getErrorMessage()).isEqualTo("External batch processing failed");
+    }
+
+    @Test
+    void syncPrompts_WhenNoTargetPrompts_ReturnsZero() {
+        Batch batch = Batch.builder()
+                .id(1L)
+                .status(BatchStatus.COMPLETED)
+                .model("claude-model")
+                .externalBatchId("ext-id")
+                .build();
+        BatchPrompt completedPrompt = BatchPrompt.builder().id(101L).status(PromptStatus.COMPLETED).responseContent("ok").build();
+        batch.addPrompt(completedPrompt);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+
+        BatchSyncPromptsResponse response = batchService.syncPrompts(1L);
+
+        assertThat(response.resynced()).isEqualTo(0);
+        assertThat(response.stillFailed()).isEqualTo(0);
+        verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
     void syncPrompts_WhenSomePromptsFailed_ResyncsThem() {
         Batch batch = Batch.builder()
                 .id(1L)
