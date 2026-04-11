@@ -8,8 +8,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -21,8 +23,6 @@ import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.exception.ExternalApiException;
-import java.util.Comparator;
-import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -194,7 +194,8 @@ public class XAIBatchAdapter implements BatchApiPort {
 
             return response.data().stream()
                     .filter(model -> isMainGrokModel(model.id()))
-                    .max(Comparator.comparingLong(XAIModelData::created))
+                    .max(Comparator.comparingLong(XAIModelData::created)
+                            .thenComparing(XAIModelData::id))
                     .map(model -> new ModelInfo(model.id(), model.id()))
                     .map(List::of)
                     .orElse(List.of());

@@ -334,6 +334,56 @@ class XAIBatchAdapterTest {
     }
 
     @Test
+    void fetchSupportedModelsReturnsEmptyWhenDataListIsEmpty() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "data": [],
+                          "object": "list"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchSupportedModels()).isEmpty();
+    }
+
+    @Test
+    void fetchSupportedModelsIgnoresNullModelId() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "data": [
+                            {"id": null, "created": 1755993600, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-3", "created": 1743724800, "object": "model", "owned_by": "xai"}
+                          ],
+                          "object": "list"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchSupportedModels())
+                .containsExactly(new ModelInfo("grok-3", "grok-3"));
+    }
+
+    @Test
+    void fetchSupportedModelsSelectsAlphabeticallyLastWhenTimestampsAreTied() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "data": [
+                            {"id": "grok-3-a", "created": 1743724800, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-3-b", "created": 1743724800, "object": "model", "owned_by": "xai"}
+                          ],
+                          "object": "list"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchSupportedModels())
+                .containsExactly(new ModelInfo("grok-3-b", "grok-3-b"));
+    }
+
+    @Test
     void fetchResultsAggregatesPaginatedPages() {
         server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123/results?page_size=100"))
                 .andExpect(queryParam("page_size", "100"))
