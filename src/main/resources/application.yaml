@@ -32,6 +32,9 @@ batch-bridge:
     beta-header: message-batches-2024-09-24
     connect-timeout-ms: 10000
     read-timeout-ms: 30000
+  xai:
+    connect-timeout-ms: 10000
+    read-timeout-ms: 60000
   api-keys:
     claude: ${CLAUDE_API_KEY}
     grok:   ${GROK_API_KEY}

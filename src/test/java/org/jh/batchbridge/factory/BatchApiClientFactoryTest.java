@@ -38,6 +38,17 @@ class BatchApiClientFactoryTest {
                 .hasMessageContaining("gemini-2.0-flash");
     }
 
+    @Test
+    void routesGrokModelToXaiAdapter() {
+        BatchApiPort claudeAdapter = new StubAdapter("claude-");
+        BatchApiPort xaiAdapter = new StubAdapter("grok-");
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(claudeAdapter, xaiAdapter));
+
+        BatchApiPort adapter = factory.getAdapter("grok-3");
+
+        assertThat(adapter).isSameAs(xaiAdapter);
+    }
+
     private record StubAdapter(String prefix) implements BatchApiPort {
 
         @Override
