@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jh.batchbridge.config.ModelListProperties;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
@@ -22,7 +21,6 @@ import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.response.ModelInfo;
-import org.jh.batchbridge.dto.response.ModelResponse;
 import org.jh.batchbridge.exception.ExternalApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,13 +40,7 @@ class XAIBatchAdapterTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.x.ai");
         server = MockRestServiceServer.bindTo(builder).build();
-
-        ModelListProperties modelListProperties = new ModelListProperties();
-        modelListProperties.setSupportedModels(Map.of(
-                "grok", List.of(new ModelResponse("grok-3", "Grok 3"))
-        ));
-
-        adapter = new XAIBatchAdapter(builder.build(), objectMapper, modelListProperties);
+        adapter = new XAIBatchAdapter(builder.build(), objectMapper);
     }
 
     @Test
@@ -292,9 +284,53 @@ class XAIBatchAdapterTest {
     }
 
     @Test
-    void fetchSupportedModelsReturnsConfiguredGrokModels() {
+    void fetchSupportedModelsReturnsLatestMainGrokModel() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "data": [
+                            {"id": "grok-4-0709", "created": 1752019200, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-code-fast-1", "created": 1755993600, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-3", "created": 1743724800, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-3-mini", "created": 1743724800, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-2-image-1212", "created": 1736726400, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-2-vision-1212", "created": 1733961600, "object": "model", "owned_by": "xai"}
+                          ],
+                          "object": "list"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
         assertThat(adapter.fetchSupportedModels())
-                .containsExactly(new ModelInfo("grok-3", "Grok 3"));
+                .containsExactly(new ModelInfo("grok-4-0709", "grok-4-0709"));
+    }
+
+    @Test
+    void fetchSupportedModelsReturnsEmptyWhenAllModelsAreSpecialized() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "data": [
+                            {"id": "grok-code-fast-1", "created": 1755993600, "object": "model", "owned_by": "xai"},
+                            {"id": "grok-2-image-1212", "created": 1736726400, "object": "model", "owned_by": "xai"}
+                          ],
+                          "object": "list"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchSupportedModels()).isEmpty();
+    }
+
+    @Test
+    void fetchSupportedModelsThrowsOnHttpError() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/models"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> adapter.fetchSupportedModels())
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("Failed to fetch xAI models");
     }
 
     @Test

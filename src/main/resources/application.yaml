@@ -22,9 +22,6 @@ batch-bridge:
       name: Batch Bridge Support
       email: support@example.com
   supported-models:
-    grok:
-      - id: grok-3
-        displayName: Grok 3
     gemini:
       - id: gemini-2.0-flash
         displayName: Gemini 2.0 Flash
