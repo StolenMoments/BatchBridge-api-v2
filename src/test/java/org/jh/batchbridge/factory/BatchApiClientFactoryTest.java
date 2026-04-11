@@ -8,10 +8,10 @@ import java.util.Map;
 import org.jh.batchbridge.adapter.BatchApiPort;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
-import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
+import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.exception.UnsupportedModelException;
 import org.junit.jupiter.api.Test;
@@ -70,6 +70,17 @@ class BatchApiClientFactoryTest {
 
         assertThatThrownBy(() -> factory.getAdapter("claude-3"))
                 .isInstanceOf(UnsupportedModelException.class);
+    }
+
+    @Test
+    void routesGrokModelToXaiAdapter() {
+        BatchApiPort claudeAdapter = new StubAdapter("claude-");
+        BatchApiPort xaiAdapter = new StubAdapter("grok-");
+        BatchApiClientFactory factory = new BatchApiClientFactory(List.of(claudeAdapter, xaiAdapter));
+
+        BatchApiPort adapter = factory.getAdapter("grok-3");
+
+        assertThat(adapter).isSameAs(xaiAdapter);
     }
 
     private record StubAdapter(String prefix) implements BatchApiPort {
