@@ -8,12 +8,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.jh.batchbridge.config.ModelListProperties;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
@@ -42,17 +43,17 @@ public class XAIBatchAdapter implements BatchApiPort {
     private static final int RESULTS_PAGE_SIZE = 100;
     static final int MAX_PAGE_COUNT = 500;
 
+    private static final List<String> EXCLUDED_MODEL_KEYWORDS = List.of("code", "image", "vision", "mini");
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final ModelListProperties modelListProperties;
 
     @Autowired
     public XAIBatchAdapter(
             @Value("${batch-bridge.api-keys.grok}") String apiKey,
             @Value("${batch-bridge.xai.connect-timeout-ms:10000}") int connectTimeout,
             @Value("${batch-bridge.xai.read-timeout-ms:60000}") int readTimeout,
-            ObjectMapper objectMapper,
-            ModelListProperties modelListProperties
+            ObjectMapper objectMapper
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(connectTimeout))
@@ -67,13 +68,11 @@ public class XAIBatchAdapter implements BatchApiPort {
                 .defaultHeader("Content-Type", "application/json")
                 .build();
         this.objectMapper = objectMapper;
-        this.modelListProperties = modelListProperties;
     }
 
-    XAIBatchAdapter(RestClient restClient, ObjectMapper objectMapper, ModelListProperties modelListProperties) {
+    XAIBatchAdapter(RestClient restClient, ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
-        this.modelListProperties = modelListProperties;
     }
 
     @Override
@@ -183,15 +182,35 @@ public class XAIBatchAdapter implements BatchApiPort {
 
     @Override
     public List<ModelInfo> fetchSupportedModels() {
-        if (modelListProperties.getSupportedModels() == null) {
-            return List.of();
-        }
+        try {
+            XAIModelsResponse response = restClient.get()
+                    .uri("/v1/models")
+                    .retrieve()
+                    .body(XAIModelsResponse.class);
 
-        return modelListProperties.getSupportedModels()
-                .getOrDefault("grok", List.of())
-                .stream()
-                .map(model -> new ModelInfo(model.id(), model.displayName()))
-                .toList();
+            if (response == null || response.data() == null) {
+                return List.of();
+            }
+
+            return response.data().stream()
+                    .filter(model -> isMainGrokModel(model.id()))
+                    .max(Comparator.comparingLong(XAIModelData::created)
+                            .thenComparing(XAIModelData::id))
+                    .map(model -> new ModelInfo(model.id(), model.id()))
+                    .map(List::of)
+                    .orElse(List.of());
+        } catch (Exception e) {
+            log.error("Failed to fetch xAI models: {}", e.getMessage());
+            throw new ExternalApiException("Failed to fetch xAI models", e);
+        }
+    }
+
+    private boolean isMainGrokModel(String modelId) {
+        if (modelId == null) {
+            return false;
+        }
+        String lower = modelId.toLowerCase(Locale.ROOT);
+        return EXCLUDED_MODEL_KEYWORDS.stream().noneMatch(lower::contains);
     }
 
     List<Map<String, Object>> buildUserInput(BatchSubmitRequest.PromptItem prompt) {
@@ -405,5 +424,11 @@ public class XAIBatchAdapter implements BatchApiPort {
     record XAIMessage(
             JsonNode content
     ) {
+    }
+
+    private record XAIModelsResponse(List<XAIModelData> data) {
+    }
+
+    private record XAIModelData(String id, long created) {
     }
 }
