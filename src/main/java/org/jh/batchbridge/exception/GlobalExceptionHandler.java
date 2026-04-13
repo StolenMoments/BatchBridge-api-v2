@@ -71,6 +71,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, "UNSUPPORTED_PROMPT_TYPE", e.getMessage());
     }
 
+    @ExceptionHandler(MediaNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaNotFound(MediaNotFoundException e) {
+        return buildError(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", e.getMessage());
+    }
+
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
         String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());
