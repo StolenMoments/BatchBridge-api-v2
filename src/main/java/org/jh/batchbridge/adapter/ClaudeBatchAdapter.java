@@ -299,7 +299,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 PromptResult promptResult;
                 if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
                     String text = extractText(resultNode.path("message").path("content"));
-                    promptResult = new PromptResult(true, text, null);
+                    promptResult = new PromptResult(true, text, null, null);
                 } else {
                     JsonNode errorNode = resultNode.path("error");
                     String errorMsg = errorNode.path("message").asText(null);
@@ -312,7 +312,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                     if (errorMsg == null) {
                         errorMsg = "Unknown error";
                     }
-                    promptResult = new PromptResult(false, null, errorMsg);
+                    promptResult = new PromptResult(false, null, errorMsg, null);
                 }
 
                 PromptResult previous = results.put(promptId, promptResult);
@@ -451,7 +451,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             PromptResult promptResult;
             if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
                 String text = extractText(resultNode.path("message").path("content"));
-                promptResult = new PromptResult(true, text, null);
+                promptResult = new PromptResult(true, text, null, null);
             } else {
                 JsonNode errorNode = resultNode.path("error");
                 String errorMsg = errorNode.path("message").asText(null);
@@ -465,7 +465,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                     errorMsg = "Unknown error";
                 }
                 
-                promptResult = new PromptResult(false, null, errorMsg);
+                promptResult = new PromptResult(false, null, errorMsg, null);
             }
 
             PromptResult previous = results.put(promptId, promptResult);

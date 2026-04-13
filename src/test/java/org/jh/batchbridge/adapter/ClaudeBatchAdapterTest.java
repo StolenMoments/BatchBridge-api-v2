@@ -75,10 +75,10 @@ class ClaudeBatchAdapterTest {
         Map<Long, PromptResult> results = adapter.parseResults(jsonlBody, Set.of(101L, 102L, 23L, 24L));
 
         assertThat(results).hasSize(4);
-        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello 한글", null));
-        assertThat(results.get(102L)).isEqualTo(new PromptResult(false, null, "bad request"));
-        assertThat(results.get(23L)).isEqualTo(new PromptResult(false, null, "max_tokens: 100000 > 64000, which is the maximum allowed number of output tokens for claude-haiku-4-5-20251001"));
-        assertThat(results.get(24L)).isEqualTo(new PromptResult(false, null, "Overloaded"));
+        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello 한글", null, null));
+        assertThat(results.get(102L)).isEqualTo(new PromptResult(false, null, "bad request", null));
+        assertThat(results.get(23L)).isEqualTo(new PromptResult(false, null, "max_tokens: 100000 > 64000, which is the maximum allowed number of output tokens for claude-haiku-4-5-20251001", null));
+        assertThat(results.get(24L)).isEqualTo(new PromptResult(false, null, "Overloaded", null));
     }
 
     @Test
@@ -685,7 +685,7 @@ class ClaudeBatchAdapterTest {
                 {"custom_id":"101","result":{"type":"succeeded","message":{"content":[{"type":"text","text":"hello"}]}}}
                 """;
         Map<Long, PromptResult> results = adapter.parseResultsFromStream(mockStreamResponse(jsonl), Set.of(101L));
-        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello", null));
+        assertThat(results.get(101L)).isEqualTo(new PromptResult(true, "hello", null, null));
     }
 
     @Test
@@ -696,7 +696,7 @@ class ClaudeBatchAdapterTest {
                 """;
         Map<Long, PromptResult> results = adapter.parseResultsFromStream(mockStreamResponse(jsonl), Set.of(1L, 2L));
         assertThat(results.get(1L).responseContent()).isEqualTo("line1\nline2");
-        assertThat(results.get(2L)).isEqualTo(new PromptResult(false, null, "bad input"));
+        assertThat(results.get(2L)).isEqualTo(new PromptResult(false, null, "bad input", null));
     }
 
     @Test

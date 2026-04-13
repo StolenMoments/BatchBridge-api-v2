@@ -91,7 +91,7 @@ public class PromptService {
                     .toList();
         }
 
-        prompt.update(label, systemPrompt, userPrompt, attachments);
+        prompt.update(label, systemPrompt, userPrompt, null, null, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
