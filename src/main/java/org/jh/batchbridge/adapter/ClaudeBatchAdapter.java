@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
+import org.jh.batchbridge.domain.PromptType;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -158,7 +159,7 @@ public class ClaudeBatchAdapter implements BatchApiPort {
                 String id = data.id();
                 String baseName = getBaseName(id);
                 
-                ModelInfo current = new ModelInfo(id, data.displayName());
+                ModelInfo current = new ModelInfo(id, data.displayName(), List.of(PromptType.TEXT));
                 ModelInfo existing = latestModels.get(baseName);
                 
                 if (existing == null || id.compareTo(existing.id()) > 0) {

@@ -24,6 +24,7 @@ import org.jh.batchbridge.exception.BatchEmptyException;
 import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.BatchNotSyncedException;
+import org.jh.batchbridge.exception.UnsupportedPromptTypeException;
 import org.jh.batchbridge.domain.PromptStatus;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
 import org.jh.batchbridge.repository.BatchRepository;
@@ -173,6 +174,13 @@ public class BatchService {
         }
 
         BatchApiPort adapter = batchApiClientFactory.getAdapter(batch.getModel());
+
+        for (BatchPrompt prompt : batch.getPrompts()) {
+            if (!adapter.supportsPromptType(prompt.getPromptType())) {
+                throw new UnsupportedPromptTypeException(prompt.getPromptType(), adapter.getSupportedModelPrefix());
+            }
+        }
+
         BatchSubmitRequest submitRequest = BatchSubmitRequest.from(batch);
         ExternalBatchId externalId = adapter.submitBatch(submitRequest);
 

@@ -66,6 +66,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, "UNSUPPORTED_MODEL", e.getMessage());
     }
 
+    @ExceptionHandler(UnsupportedPromptTypeException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupportedPromptType(UnsupportedPromptTypeException e) {
+        return buildError(HttpStatus.BAD_REQUEST, "UNSUPPORTED_PROMPT_TYPE", e.getMessage());
+    }
+
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
         String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());

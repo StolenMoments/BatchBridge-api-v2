@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
+import org.jh.batchbridge.domain.PromptType;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -196,7 +197,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                     .filter(model -> isMainGrokModel(model.id()))
                     .max(Comparator.comparingLong(XAIModelData::created)
                             .thenComparing(XAIModelData::id))
-                    .map(model -> new ModelInfo(model.id(), model.id()))
+                    .map(model -> new ModelInfo(model.id(), model.id(), List.of(PromptType.TEXT)))
                     .map(List::of)
                     .orElse(List.of());
         } catch (Exception e) {
