@@ -49,6 +49,8 @@ class XAIBatchAdapterTest {
                 1L,
                 "system message",
                 "user message",
+                null,
+                null,
                 List.of(
                         new BatchSubmitRequest.AttachmentItem("a.txt", "A"),
                         new BatchSubmitRequest.AttachmentItem("b.txt", "B")
@@ -73,6 +75,8 @@ class XAIBatchAdapterTest {
                 1L,
                 null,
                 "user message",
+                null,
+                null,
                 List.of(new BatchSubmitRequest.AttachmentItem("<evil>", "content with & \"quotes\""))
         );
 
@@ -91,6 +95,8 @@ class XAIBatchAdapterTest {
                 1L,
                 null,
                 "plain prompt",
+                null,
+                null,
                 List.of()
         );
 
@@ -183,6 +189,8 @@ class XAIBatchAdapterTest {
                         101L,
                         "sys",
                         "user",
+                        null,
+                        null,
                         List.of(new BatchSubmitRequest.AttachmentItem("doc.txt", "body"))
                 ))
         ));

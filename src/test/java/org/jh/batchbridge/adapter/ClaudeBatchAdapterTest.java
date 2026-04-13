@@ -245,7 +245,7 @@ class ClaudeBatchAdapterTest {
     @SuppressWarnings("unchecked")
     void buildSubmitRequestBody_includesAttachmentsInUserPrompt() {
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3", java.util.List.of(
-                new BatchSubmitRequest.PromptItem(1L, "sys", "user prompt", java.util.List.of(
+                new BatchSubmitRequest.PromptItem(1L, "sys", "user prompt", null, null, java.util.List.of(
                         new BatchSubmitRequest.AttachmentItem("file1.txt", "content1"),
                         new BatchSubmitRequest.AttachmentItem("file2.txt", "content2")
                 ))
@@ -269,7 +269,7 @@ class ClaudeBatchAdapterTest {
     @SuppressWarnings("unchecked")
     void buildSubmitRequestBody_NoSystemPrompt_OmitsSystemField() {
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3", List.of(
-                new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())
+                new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())
         ));
 
         Map<String, Object> body = adapter.buildSubmitRequestBody(request);
@@ -283,7 +283,7 @@ class ClaudeBatchAdapterTest {
     @SuppressWarnings("unchecked")
     void buildSubmitRequestBody_SetsMaxTokensAndModel() {
         BatchSubmitRequest request = new BatchSubmitRequest("claude-sonnet", List.of(
-                new BatchSubmitRequest.PromptItem(99L, "sys", "user", List.of())
+                new BatchSubmitRequest.PromptItem(99L, "sys", "user", null, null, List.of())
         ));
 
         Map<String, Object> body = adapter.buildSubmitRequestBody(request);
@@ -299,7 +299,7 @@ class ClaudeBatchAdapterTest {
     @SuppressWarnings("unchecked")
     void buildSubmitRequestBody_NoAttachments_OnlyUserPromptInContent() {
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3", List.of(
-                new BatchSubmitRequest.PromptItem(1L, "sys", "just user", List.of())
+                new BatchSubmitRequest.PromptItem(1L, "sys", "just user", null, null, List.of())
         ));
 
         Map<String, Object> body = adapter.buildSubmitRequestBody(request);
@@ -330,7 +330,7 @@ class ClaudeBatchAdapterTest {
         when(responseSpec.body(ClaudeBatchResponse.class)).thenReturn(claudeResponse);
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         ExternalBatchId result = mockAdapter.submitBatch(request);
 
@@ -350,7 +350,7 @@ class ClaudeBatchAdapterTest {
         when(responseSpec.body(ClaudeBatchResponse.class)).thenReturn(null);
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         assertThatThrownBy(() -> mockAdapter.submitBatch(request))
                 .isInstanceOf(ExternalApiException.class)
@@ -371,7 +371,7 @@ class ClaudeBatchAdapterTest {
         when(responseSpec.body(ClaudeBatchResponse.class)).thenReturn(claudeResponse);
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         assertThatThrownBy(() -> mockAdapter.submitBatch(request))
                 .isInstanceOf(ExternalApiException.class);
@@ -391,7 +391,7 @@ class ClaudeBatchAdapterTest {
                 .thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         assertThatThrownBy(() -> mockAdapter.submitBatch(request))
                 .isInstanceOf(ExternalApiException.class)
@@ -412,7 +412,7 @@ class ClaudeBatchAdapterTest {
                 .thenThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         assertThatThrownBy(() -> mockAdapter.submitBatch(request))
                 .isInstanceOf(ExternalApiException.class);
@@ -427,7 +427,7 @@ class ClaudeBatchAdapterTest {
         when(postSpec.uri(anyString())).thenThrow(new RestClientException("connection refused"));
 
         BatchSubmitRequest request = new BatchSubmitRequest("claude-3",
-                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", List.of())));
+                List.of(new BatchSubmitRequest.PromptItem(1L, null, "user", null, null, List.of())));
 
         assertThatThrownBy(() -> mockAdapter.submitBatch(request))
                 .isInstanceOf(ExternalApiException.class)

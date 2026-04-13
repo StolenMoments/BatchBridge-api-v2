@@ -315,5 +315,10 @@ class BatchTest {
         public void complete(String responseContent) {
             throw new RuntimeException("forced test failure");
         }
+
+        @Override
+        public void complete(String responseContent, String resultMediaPath) {
+            throw new RuntimeException("forced test failure");
+        }
     }
 }
