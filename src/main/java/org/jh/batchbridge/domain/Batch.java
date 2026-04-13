@@ -145,7 +145,7 @@ public class Batch {
         try {
             PromptResult result = results.get(prompt.getId());
             if (result != null && result.success()) {
-                prompt.complete(result.responseContent());
+                prompt.complete(result.responseContent(), result.resultMediaPath());
                 return;
             }
 

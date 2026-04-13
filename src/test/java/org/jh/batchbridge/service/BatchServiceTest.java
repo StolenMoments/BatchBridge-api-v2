@@ -316,7 +316,7 @@ class BatchServiceTest {
         when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
         when(batchApiPort.fetchStatus(any())).thenReturn(new org.jh.batchbridge.dto.external.BatchStatusResult(
             ExternalBatchStatus.COMPLETED, null));
-        when(batchApiPort.fetchResults(any(), any())).thenReturn(java.util.Map.of(101L, new PromptResult(true, "result text", null)));
+        when(batchApiPort.fetchResults(any(), any())).thenReturn(java.util.Map.of(101L, new PromptResult(true, "result text", null, null)));
 
         batchService.syncStatus(1L);
 
@@ -494,8 +494,8 @@ class BatchServiceTest {
         
         // p2, p3 should be targets
         Map<Long, PromptResult> results = Map.of(
-                102L, new PromptResult(true, "new-content", null),
-                103L, new PromptResult(false, null, "still-no-result")
+                102L, new PromptResult(true, "new-content", null, null),
+                103L, new PromptResult(false, null, "still-no-result", null)
         );
         when(batchApiPort.fetchResults(any(), any())).thenReturn(results);
 

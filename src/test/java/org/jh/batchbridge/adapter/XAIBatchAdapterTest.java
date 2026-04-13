@@ -49,6 +49,8 @@ class XAIBatchAdapterTest {
                 1L,
                 "system message",
                 "user message",
+                null,
+                null,
                 List.of(
                         new BatchSubmitRequest.AttachmentItem("a.txt", "A"),
                         new BatchSubmitRequest.AttachmentItem("b.txt", "B")
@@ -73,6 +75,8 @@ class XAIBatchAdapterTest {
                 1L,
                 null,
                 "user message",
+                null,
+                null,
                 List.of(new BatchSubmitRequest.AttachmentItem("<evil>", "content with & \"quotes\""))
         );
 
@@ -91,6 +95,8 @@ class XAIBatchAdapterTest {
                 1L,
                 null,
                 "plain prompt",
+                null,
+                null,
                 List.of()
         );
 
@@ -105,8 +111,8 @@ class XAIBatchAdapterTest {
                 failedResult("102", "bad request")
         ), Set.of(101L, 102L));
 
-        assertThat(results).containsEntry(101L, new PromptResult(true, "hello", null));
-        assertThat(results).containsEntry(102L, new PromptResult(false, null, "bad request"));
+        assertThat(results).containsEntry(101L, new PromptResult(true, "hello", null, null));
+        assertThat(results).containsEntry(102L, new PromptResult(false, null, "bad request", null));
     }
 
     @Test
@@ -119,7 +125,7 @@ class XAIBatchAdapterTest {
         ), Set.of(101L, 102L));
 
         assertThat(results).hasSize(1);
-        assertThat(results).containsEntry(102L, new PromptResult(false, null, "Unknown error"));
+        assertThat(results).containsEntry(102L, new PromptResult(false, null, "Unknown error", null));
     }
 
     @Test
@@ -183,6 +189,8 @@ class XAIBatchAdapterTest {
                         101L,
                         "sys",
                         "user",
+                        null,
+                        null,
                         List.of(new BatchSubmitRequest.AttachmentItem("doc.txt", "body"))
                 ))
         ));
@@ -436,8 +444,8 @@ class XAIBatchAdapterTest {
         );
 
         assertThat(adapter.fetchResults(new ExternalBatchId("batch_123"), prompts))
-                .containsEntry(101L, new PromptResult(true, "first", null))
-                .containsEntry(102L, new PromptResult(true, "second", null));
+                .containsEntry(101L, new PromptResult(true, "first", null, null))
+                .containsEntry(102L, new PromptResult(true, "second", null, null));
     }
 
     @Test

@@ -23,6 +23,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.springframework.lang.Nullable;
 
 @Entity
 @Table(name = "batch_prompt")
@@ -55,6 +56,17 @@ public class BatchPrompt {
     @Builder.Default
     private PromptStatus status = PromptStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private PromptType promptType = PromptType.TEXT;
+
+    @Column(length = 2000)
+    private String referenceMediaUrl;
+
+    @Column(length = 2000)
+    private String resultMediaPath;
+
     @Lob
     private String responseContent;
 
@@ -82,6 +94,28 @@ public class BatchPrompt {
         return prompt;
     }
 
+    public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
+                                     PromptType promptType, String referenceMediaUrl) {
+        return create(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, null);
+    }
+
+    public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
+                                     PromptType promptType, String referenceMediaUrl,
+                                     List<PromptAttachment> attachments) {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .label(label)
+                .systemPrompt(systemPrompt)
+                .userPrompt(userPrompt)
+                .promptType(promptType != null ? promptType : PromptType.TEXT)
+                .referenceMediaUrl(referenceMediaUrl)
+                .status(PromptStatus.PENDING)
+                .build();
+        if (attachments != null) {
+            attachments.forEach(prompt::addAttachment);
+        }
+        return prompt;
+    }
+
     public void addAttachment(PromptAttachment attachment) {
         attachments.add(attachment);
         attachment.assignPrompt(this);
@@ -91,13 +125,17 @@ public class BatchPrompt {
         this.batch = batch;
     }
 
-    public void update(String label, String systemPrompt, String userPrompt, List<PromptAttachment> attachments) {
+    public void update(String label, String systemPrompt, String userPrompt,
+                       PromptType promptType, String referenceMediaUrl,
+                       List<PromptAttachment> attachments) {
         if (batch != null && !batch.isEditable()) {
             throw new IllegalStateException("Cannot update prompt of a non-draft batch.");
         }
         this.label = label;
         this.systemPrompt = systemPrompt;
         this.userPrompt = userPrompt;
+        this.promptType = promptType != null ? promptType : PromptType.TEXT;
+        this.referenceMediaUrl = referenceMediaUrl;
         if (attachments != null) {
             this.attachments.clear();
             attachments.forEach(this::addAttachment);
@@ -109,7 +147,12 @@ public class BatchPrompt {
     }
 
     public void complete(String responseContent) {
+        complete(responseContent, null);
+    }
+
+    public void complete(String responseContent, @Nullable String resultMediaPath) {
         this.responseContent = responseContent;
+        this.resultMediaPath = resultMediaPath;
         this.errorMessage = null;
         this.status = PromptStatus.COMPLETED;
     }

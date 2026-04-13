@@ -178,34 +178,16 @@ public class ClaudeBatchAdapter implements BatchApiPort {
      * Declared as package-private for testing purposes.
      */
     String getBaseName(String modelId) {
-        // First, handle -latest
         String base = modelId;
+        // Strip -latest suffix
         if (base.endsWith("-latest")) {
             base = base.substring(0, base.length() - "-latest".length());
         }
-
-        // Then, handle date suffix -YYYYMMDD
+        // Strip date suffix -YYYYMMDD
         if (base.matches(".*-\\d{8}")) {
             base = base.substring(0, base.lastIndexOf('-'));
         }
-
-        // The user seems to want to group all variants of a model family together
-        // Example: claude-sonnet-4-5, claude-sonnet-4-6 -> claude-sonnet
-        // If we strip ALL trailing version-like numbers/dots, we can group them.
-        
-        // But let's look at the example again:
-        // claude-sonnet-4-5-20250929 -> base "claude-sonnet-4-5"
-        // claude-sonnet-4-6 -> base "claude-sonnet-4-6"
-        // They are different bases, so both show up.
-        
-        // If the user says "걸러내야해" (must filter out) for these, 
-        // they probably want only the latest SONNET, latest OPUS, etc. regardless of minor version numbers in the ID.
-        
-        // New strategy: find the family name (sonnet, opus, haiku) and everything before it.
-        // ID pattern usually is: claude-[version]-[family]-[subversion]
-        // Actually, it varies. "claude-3-5-sonnet", "claude-sonnet-4-5"
-        
-        // Let's try to identify the family keywords.
+        // Group by model family keyword (sonnet, opus, haiku)
         if (base.contains("sonnet")) {
             return base.substring(0, base.indexOf("sonnet") + "sonnet".length());
         }
@@ -215,7 +197,6 @@ public class ClaudeBatchAdapter implements BatchApiPort {
         if (base.contains("haiku")) {
             return base.substring(0, base.indexOf("haiku") + "haiku".length());
         }
-        
         return base;
     }
 
@@ -250,89 +231,14 @@ public class ClaudeBatchAdapter implements BatchApiPort {
 
     /** 테스트용으로 package-private 선언. */
     Map<Long, PromptResult> parseResultsFromStream(ClientHttpResponse response, Set<Long> expectedPromptIds) throws IOException {
-        Map<Long, PromptResult> results = new HashMap<>();
-        int skippedLines = 0;
-        int lineNumber = 0;
-
+        List<String> lines = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) {
-                    continue;
-                }
-
-                JsonNode lineNode;
-                try {
-                    lineNode = objectMapper.readTree(line);
-                } catch (IOException e) {
-                    skippedLines++;
-                    log.warn("Skipping invalid Claude result line [line={}]", lineNumber, e);
-                    continue;
-                }
-
-                String customId = lineNode.path("custom_id").asText(null);
-                if (customId == null || customId.isBlank()) {
-                    skippedLines++;
-                    log.warn("Skipping Claude result line without custom_id [line={}]", lineNumber);
-                    continue;
-                }
-
-                final Long promptId;
-                try {
-                    promptId = Long.valueOf(customId);
-                } catch (NumberFormatException e) {
-                    skippedLines++;
-                    log.warn("Skipping Claude result line with non-numeric custom_id [line={}, customId={}]", lineNumber, customId);
-                    continue;
-                }
-
-                if (!expectedPromptIds.isEmpty() && !expectedPromptIds.contains(promptId)) {
-                    skippedLines++;
-                    log.warn("Skipping Claude result for unknown prompt id [promptId={}]", promptId);
-                    continue;
-                }
-
-                JsonNode resultNode = lineNode.path("result");
-                String type = resultNode.path("type").asText();
-
-                PromptResult promptResult;
-                if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
-                    String text = extractText(resultNode.path("message").path("content"));
-                    promptResult = new PromptResult(true, text, null);
-                } else {
-                    JsonNode errorNode = resultNode.path("error");
-                    String errorMsg = errorNode.path("message").asText(null);
-
-                    // Handle nested error structure: result.error.error.message
-                    if (errorMsg == null && errorNode.has("error")) {
-                        errorMsg = errorNode.path("error").path("message").asText(null);
-                    }
-
-                    if (errorMsg == null) {
-                        errorMsg = "Unknown error";
-                    }
-                    promptResult = new PromptResult(false, null, errorMsg);
-                }
-
-                PromptResult previous = results.put(promptId, promptResult);
-                if (previous != null) {
-                    log.warn("Duplicate Claude result detected for prompt id [promptId={}]", promptId);
-                }
+                lines.add(line);
             }
         }
-
-        if (skippedLines > 0) {
-            log.warn("Skipped {} invalid/unmatched Claude result line(s)", skippedLines);
-        }
-        if (!expectedPromptIds.isEmpty() && results.isEmpty()) {
-            log.warn("No valid Claude prompt results parsed from payload");
-        }
-        if (!expectedPromptIds.isEmpty() && results.size() < expectedPromptIds.size()) {
-            log.warn("Claude results are missing prompts [expected={}, parsed={}]", expectedPromptIds.size(), results.size());
-        }
-
-        return results;
+        return parseJsonlLines(lines, expectedPromptIds);
     }
 
     /**
@@ -405,8 +311,11 @@ public class ClaudeBatchAdapter implements BatchApiPort {
      * Declared as package-private for testing purposes.
      */
     Map<Long, PromptResult> parseResults(String jsonlBody, Set<Long> expectedPromptIds) {
+        return parseJsonlLines(List.of(jsonlBody.split("\\R")), expectedPromptIds);
+    }
+
+    private Map<Long, PromptResult> parseJsonlLines(List<String> lines, Set<Long> expectedPromptIds) {
         Map<Long, PromptResult> results = new HashMap<>();
-        String[] lines = jsonlBody.split("\\R");
         int skippedLines = 0;
         int lineNumber = 0;
         for (String line : lines) {
@@ -451,21 +360,21 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             PromptResult promptResult;
             if (RESULT_TYPE_SUCCEEDED.equalsIgnoreCase(type)) {
                 String text = extractText(resultNode.path("message").path("content"));
-                promptResult = new PromptResult(true, text, null);
+                promptResult = new PromptResult(true, text, null, null);
             } else {
                 JsonNode errorNode = resultNode.path("error");
                 String errorMsg = errorNode.path("message").asText(null);
-                
+
                 // Handle nested error structure: result.error.error.message
                 if (errorMsg == null && errorNode.has("error")) {
                     errorMsg = errorNode.path("error").path("message").asText(null);
                 }
-                
+
                 if (errorMsg == null) {
                     errorMsg = "Unknown error";
                 }
-                
-                promptResult = new PromptResult(false, null, errorMsg);
+
+                promptResult = new PromptResult(false, null, errorMsg, null);
             }
 
             PromptResult previous = results.put(promptId, promptResult);

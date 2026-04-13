@@ -68,7 +68,7 @@ class BatchStatusSyncWorkerTest {
         when(adapter.fetchStatus(any(ExternalBatchId.class)))
                 .thenReturn(new BatchStatusResult(ExternalBatchStatus.COMPLETED, null));
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
-                .thenReturn(Map.of(101L, new PromptResult(true, "done", null)));
+                .thenReturn(Map.of(101L, new PromptResult(true, "done", null, null)));
 
         worker.syncOne(1L);
 
@@ -127,8 +127,8 @@ class BatchStatusSyncWorkerTest {
         // 101L은 성공, 102L은 명시적인 실패 결과 응답
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
                 .thenReturn(Map.of(
-                    101L, new PromptResult(true, "success", null),
-                    102L, new PromptResult(false, null, "error message")
+                    101L, new PromptResult(true, "success", null, null),
+                    102L, new PromptResult(false, null, "error message", null)
                 ));
 
         worker.syncOne(1L);
@@ -160,7 +160,7 @@ class BatchStatusSyncWorkerTest {
         // Let's assume some unexpected data in PromptResult might cause an issue, 
         // but the current code handles nulls and unexpected results.
         when(adapter.fetchResults(any(ExternalBatchId.class), any()))
-                .thenReturn(Map.of(101L, new PromptResult(true, "done", null)));
+                .thenReturn(Map.of(101L, new PromptResult(true, "done", null, null)));
 
         worker.syncOne(1L);
 

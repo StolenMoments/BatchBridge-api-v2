@@ -256,13 +256,13 @@ public class XAIBatchAdapter implements BatchApiPort {
             XAIResponsePayload response = result.batchResult().response();
             PromptResult promptResult;
             if (response != null && response.chatGetCompletion() != null) {
-                promptResult = new PromptResult(true, extractText(response.chatGetCompletion()), null);
+                promptResult = new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
             } else {
                 String errorMessage = result.errorMessage();
                 if (!StringUtils.hasText(errorMessage)) {
                     errorMessage = "Unknown error";
                 }
-                promptResult = new PromptResult(false, null, errorMessage);
+                promptResult = new PromptResult(false, null, errorMessage, null);
             }
 
             parsed.put(promptId, promptResult);

@@ -2,6 +2,7 @@ package org.jh.batchbridge.dto.external;
 
 import java.util.List;
 import org.jh.batchbridge.domain.Batch;
+import org.jh.batchbridge.domain.PromptType;
 import org.springframework.lang.Nullable;
 
 public record BatchSubmitRequest(
@@ -12,6 +13,8 @@ public record BatchSubmitRequest(
             Long promptId,
             @Nullable String systemPrompt,
             String userPrompt,
+            @Nullable PromptType promptType,
+            @Nullable String referenceMediaUrl,
             List<AttachmentItem> attachments
     ) {
     }
@@ -28,6 +31,8 @@ public record BatchSubmitRequest(
                         prompt.getId(),
                         prompt.getSystemPrompt(),
                         prompt.getUserPrompt(),
+                        prompt.getPromptType(),
+                        prompt.getReferenceMediaUrl(),
                         prompt.getAttachments().stream()
                                 .map(attachment -> new AttachmentItem(attachment.getFileName(), attachment.getFileContent()))
                                 .toList()

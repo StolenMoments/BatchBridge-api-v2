@@ -81,7 +81,7 @@ class BatchTest {
 
         batch.submit("ext-1");
 
-        PromptResult result = new PromptResult(true, "response", null);
+        PromptResult result = new PromptResult(true, "response", null, null);
         Map<Long, PromptResult> results = Map.of(1L, result);
 
         batch.complete(results);
@@ -104,7 +104,7 @@ class BatchTest {
         setField(prompt2, "id", 2L);
         batch.submit("ext-1");
 
-        batch.complete(Map.of(1L, new PromptResult(true, "ok", null)));
+        batch.complete(Map.of(1L, new PromptResult(true, "ok", null, null)));
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(prompt1.getStatus()).isEqualTo(PromptStatus.COMPLETED);
@@ -125,8 +125,8 @@ class BatchTest {
         batch.submit("ext-1");
 
         batch.complete(Map.of(
-                1L, new PromptResult(true, "ignored", null),
-                2L, new PromptResult(true, "done", null)
+                1L, new PromptResult(true, "ignored", null, null),
+                2L, new PromptResult(true, "done", null, null)
         ));
 
         assertThat(batch.getStatus()).isEqualTo(BatchStatus.COMPLETED);
@@ -243,7 +243,7 @@ class BatchTest {
         batch.addPrompt(prompt);
         setField(prompt, "id", 1L);
         batch.submit("ext-1");
-        batch.complete(Map.of(1L, new PromptResult(true, "ok", null)));
+        batch.complete(Map.of(1L, new PromptResult(true, "ok", null, null)));
 
         batch.fail("late error");
 
@@ -313,6 +313,11 @@ class BatchTest {
 
         @Override
         public void complete(String responseContent) {
+            throw new RuntimeException("forced test failure");
+        }
+
+        @Override
+        public void complete(String responseContent, String resultMediaPath) {
             throw new RuntimeException("forced test failure");
         }
     }

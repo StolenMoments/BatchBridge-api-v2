@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import org.jh.batchbridge.domain.PromptAttachment;
+import org.jh.batchbridge.domain.PromptType;
 import org.jh.batchbridge.dto.request.PromptAttachmentRequest;
 
 @Service
@@ -51,6 +52,8 @@ public class PromptService {
                 resolveLabel(request.label(), batch),
                 request.systemPrompt(),
                 request.userPrompt(),
+                request.promptType(),
+                request.referenceMediaUrl(),
                 attachments
         );
 
@@ -91,7 +94,9 @@ public class PromptService {
                     .toList();
         }
 
-        prompt.update(label, systemPrompt, userPrompt, attachments);
+        PromptType promptType = request.promptType() != null ? request.promptType() : prompt.getPromptType();
+        String referenceMediaUrl = request.referenceMediaUrl() != null ? request.referenceMediaUrl() : prompt.getReferenceMediaUrl();
+        prompt.update(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
