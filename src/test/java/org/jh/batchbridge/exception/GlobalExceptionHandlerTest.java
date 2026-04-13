@@ -86,4 +86,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.code").value("CONTEXT_FETCH_FAILED"))
                 .andExpect(jsonPath("$.error.message").value("A connection error occurred. Please try again later."));
     }
+
+    @Test
+    void returns404ForMediaNotFoundException() throws Exception {
+        mockMvc.perform(get("/test/media/1/2"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("MEDIA_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").value("Media not found for batch 1, prompt 2"));
+    }
 }

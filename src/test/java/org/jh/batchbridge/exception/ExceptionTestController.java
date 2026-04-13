@@ -36,4 +36,9 @@ public class ExceptionTestController {
     String externalApi() {
         throw new ExternalApiException("External API call failed.");
     }
+
+    @GetMapping("/test/media/{batchId}/{promptId}")
+    String media(@PathVariable Long batchId, @PathVariable Long promptId) {
+        throw new MediaNotFoundException(batchId, promptId);
+    }
 }
