@@ -82,11 +82,6 @@ public class XAIBatchAdapter implements BatchApiPort {
     }
 
     @Override
-    public boolean supportsPromptType(PromptType promptType) {
-        return promptType == PromptType.TEXT;
-    }
-
-    @Override
     public ExternalBatchId submitBatch(BatchSubmitRequest request) {
         try {
             XAIBatchResponse createdBatch = restClient.post()
@@ -202,7 +197,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                     .filter(model -> isMainGrokModel(model.id()))
                     .max(Comparator.comparingLong(XAIModelData::created)
                             .thenComparing(XAIModelData::id))
-                    .map(model -> new ModelInfo(model.id(), model.id()))
+                    .map(model -> new ModelInfo(model.id(), model.id(), List.of(PromptType.TEXT)))
                     .map(List::of)
                     .orElse(List.of());
         } catch (Exception e) {

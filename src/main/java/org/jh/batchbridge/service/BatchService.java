@@ -177,7 +177,7 @@ public class BatchService {
 
         for (BatchPrompt prompt : batch.getPrompts()) {
             if (!adapter.supportsPromptType(prompt.getPromptType())) {
-                throw new UnsupportedPromptTypeException(prompt.getPromptType());
+                throw new UnsupportedPromptTypeException(prompt.getPromptType(), adapter.getSupportedModelPrefix());
             }
         }
 

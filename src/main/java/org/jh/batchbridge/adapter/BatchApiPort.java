@@ -14,7 +14,9 @@ public interface BatchApiPort {
 
     String getSupportedModelPrefix();
 
-    boolean supportsPromptType(PromptType promptType);
+    default boolean supportsPromptType(PromptType promptType) {
+        return promptType == PromptType.TEXT;
+    }
 
     ExternalBatchId submitBatch(BatchSubmitRequest request);
 

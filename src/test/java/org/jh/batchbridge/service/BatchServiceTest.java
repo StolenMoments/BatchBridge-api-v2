@@ -289,10 +289,12 @@ class BatchServiceTest {
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
         when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
         when(batchApiPort.supportsPromptType(PromptType.IMAGE_GENERATION)).thenReturn(false);
+        when(batchApiPort.getSupportedModelPrefix()).thenReturn("claude-");
 
         assertThatThrownBy(() -> batchService.submitBatch(1L))
                 .isInstanceOf(UnsupportedPromptTypeException.class)
-                .hasMessageContaining("IMAGE_GENERATION");
+                .hasMessageContaining("IMAGE_GENERATION")
+                .hasMessageContaining("claude-");
     }
 
     @Test

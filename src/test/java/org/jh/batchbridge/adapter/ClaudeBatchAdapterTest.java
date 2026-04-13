@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jh.batchbridge.domain.PromptType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.jh.batchbridge.domain.PromptResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
@@ -871,12 +872,12 @@ class ClaudeBatchAdapterTest {
 
     @Test
     void supportsPromptType_Text_ReturnsTrue() {
-        assertThat(adapter.supportsPromptType(org.jh.batchbridge.domain.PromptType.TEXT)).isTrue();
+        assertThat(adapter.supportsPromptType(PromptType.TEXT)).isTrue();
     }
 
     @Test
     void supportsPromptType_ImageGeneration_ReturnsFalse() {
-        assertThat(adapter.supportsPromptType(org.jh.batchbridge.domain.PromptType.IMAGE_GENERATION)).isFalse();
+        assertThat(adapter.supportsPromptType(PromptType.IMAGE_GENERATION)).isFalse();
     }
 
     // Helper record for filterLatestModels test

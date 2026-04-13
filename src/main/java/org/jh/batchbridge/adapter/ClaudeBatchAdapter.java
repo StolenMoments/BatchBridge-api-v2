@@ -91,11 +91,6 @@ public class ClaudeBatchAdapter implements BatchApiPort {
     }
 
     @Override
-    public boolean supportsPromptType(PromptType promptType) {
-        return promptType == PromptType.TEXT;
-    }
-
-    @Override
     public ExternalBatchId submitBatch(BatchSubmitRequest request) {
         Map<String, Object> requestBody = buildSubmitRequestBody(request);
         try {
