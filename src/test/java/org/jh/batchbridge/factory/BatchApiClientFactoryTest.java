@@ -91,6 +91,11 @@ class BatchApiClientFactoryTest {
         }
 
         @Override
+        public boolean supportsPromptType(org.jh.batchbridge.domain.PromptType promptType) {
+            return true;
+        }
+
+        @Override
         public ExternalBatchId submitBatch(BatchSubmitRequest request) {
             return new ExternalBatchId("external-id");
         }

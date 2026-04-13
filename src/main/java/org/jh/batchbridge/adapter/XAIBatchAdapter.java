@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.jh.batchbridge.domain.BatchPrompt;
 import org.jh.batchbridge.domain.PromptResult;
+import org.jh.batchbridge.domain.PromptType;
 import org.jh.batchbridge.dto.external.BatchStatusResult;
 import org.jh.batchbridge.dto.external.BatchSubmitRequest;
 import org.jh.batchbridge.dto.external.ExternalBatchId;
@@ -78,6 +79,11 @@ public class XAIBatchAdapter implements BatchApiPort {
     @Override
     public String getSupportedModelPrefix() {
         return MODEL_PREFIX;
+    }
+
+    @Override
+    public boolean supportsPromptType(PromptType promptType) {
+        return promptType == PromptType.TEXT;
     }
 
     @Override

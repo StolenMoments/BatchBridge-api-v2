@@ -23,11 +23,13 @@ import org.jh.batchbridge.dto.response.BatchDetailResponse;
 import org.jh.batchbridge.dto.response.BatchListResponse;
 import org.jh.batchbridge.dto.response.BatchSubmitResponse;
 import org.jh.batchbridge.dto.response.BatchSyncPromptsResponse;
+import org.jh.batchbridge.domain.PromptType;
 import org.jh.batchbridge.exception.BatchEmptyException;
 import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.BatchNotSyncedException;
 import org.jh.batchbridge.exception.UnsupportedModelException;
+import org.jh.batchbridge.exception.UnsupportedPromptTypeException;
 import org.jh.batchbridge.domain.PromptStatus;
 import java.util.Map;
 import org.jh.batchbridge.factory.BatchApiClientFactory;
@@ -244,6 +246,7 @@ class BatchServiceTest {
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
         when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.supportsPromptType(any())).thenReturn(true);
         when(batchApiPort.submitBatch(any())).thenReturn(new ExternalBatchId("msgbatch_01abc123"));
 
         BatchSubmitResponse response = batchService.submitBatch(1L);
@@ -273,6 +276,23 @@ class BatchServiceTest {
                 .hasMessage("Batch is not editable");
 
         verifyNoInteractions(batchApiClientFactory);
+    }
+
+    @Test
+    void submitBatch_WhenPromptTypeUnsupported_ThrowsUnsupportedPromptType() {
+        Batch batch = Batch.createDraft("label", "claude-3-5-sonnet-20240620");
+        ReflectionTestUtils.setField(batch, "id", 1L);
+        BatchPrompt prompt = BatchPrompt.create("prompt-1", null, "draw a cat", PromptType.IMAGE_GENERATION, null);
+        ReflectionTestUtils.setField(prompt, "id", 101L);
+        batch.addPrompt(prompt);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("claude-3-5-sonnet-20240620")).thenReturn(batchApiPort);
+        when(batchApiPort.supportsPromptType(PromptType.IMAGE_GENERATION)).thenReturn(false);
+
+        assertThatThrownBy(() -> batchService.submitBatch(1L))
+                .isInstanceOf(UnsupportedPromptTypeException.class)
+                .hasMessageContaining("IMAGE_GENERATION");
     }
 
     @Test

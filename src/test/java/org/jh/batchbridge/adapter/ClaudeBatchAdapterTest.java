@@ -865,6 +865,20 @@ class ClaudeBatchAdapterTest {
         assertThat(adapter.getSupportedModelPrefix()).isEqualTo("claude-");
     }
 
+    // -------------------------------------------------------------------------
+    // supportsPromptType
+    // -------------------------------------------------------------------------
+
+    @Test
+    void supportsPromptType_Text_ReturnsTrue() {
+        assertThat(adapter.supportsPromptType(org.jh.batchbridge.domain.PromptType.TEXT)).isTrue();
+    }
+
+    @Test
+    void supportsPromptType_ImageGeneration_ReturnsFalse() {
+        assertThat(adapter.supportsPromptType(org.jh.batchbridge.domain.PromptType.IMAGE_GENERATION)).isFalse();
+    }
+
     // Helper record for filterLatestModels test
     private record ClaudeModelData(String id, String displayName) {}
 }
