@@ -10,6 +10,7 @@ import org.jh.batchbridge.dto.response.BatchPromptResponse;
 import org.jh.batchbridge.exception.BatchNotEditableException;
 import org.jh.batchbridge.exception.BatchNotFoundException;
 import org.jh.batchbridge.exception.PromptNotFoundException;
+import org.jh.batchbridge.exception.ReferencePromptNotCompletedException;
 import org.jh.batchbridge.repository.BatchPromptRepository;
 import org.jh.batchbridge.repository.BatchRepository;
 import org.springframework.stereotype.Service;
@@ -49,12 +50,15 @@ public class PromptService {
         }
 
         PromptType promptType = request.promptType() != null ? request.promptType() : PromptType.TEXT;
+        String resolvedReferenceMediaUrl = resolveReferenceMediaUrl(
+                batchId, promptType, request.referenceMediaUrl(), request.referencePromptId());
         BatchPrompt prompt = BatchPrompt.create(
                 resolveLabel(request.label(), batch),
                 request.systemPrompt(),
                 request.userPrompt(),
                 promptType,
-                request.referenceMediaUrl(),
+                resolvedReferenceMediaUrl,
+                request.referencePromptId(),
                 attachments
         );
 
@@ -95,9 +99,19 @@ public class PromptService {
                     .toList();
         }
 
-        PromptType promptType = request.promptType() != null ? request.promptType() : (prompt.getPromptType() != null ? prompt.getPromptType() : PromptType.TEXT);
-        String referenceMediaUrl = request.referenceMediaUrl() != null ? request.referenceMediaUrl() : prompt.getReferenceMediaUrl();
-        prompt.update(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, attachments);
+        PromptType promptType = request.promptType() != null ? request.promptType() : prompt.getPromptType();
+        String resolvedReferenceMediaUrl;
+        Long resolvedReferencePromptId;
+        if (request.referencePromptId() == null && request.referenceMediaUrl() == null) {
+            // 참조 필드 변경 의도 없음 → 기존 값 유지, 재검증 스킵
+            resolvedReferenceMediaUrl = prompt.getReferenceMediaUrl();
+            resolvedReferencePromptId = prompt.getReferencePromptId();
+        } else {
+            resolvedReferenceMediaUrl = resolveReferenceMediaUrl(
+                    batchId, promptType, request.referenceMediaUrl(), request.referencePromptId());
+            resolvedReferencePromptId = request.referencePromptId();
+        }
+        prompt.update(label, systemPrompt, userPrompt, promptType, resolvedReferenceMediaUrl, resolvedReferencePromptId, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }
@@ -118,6 +132,24 @@ public class PromptService {
         BatchPrompt prompt = promptRepository.findByIdAndBatchId(promptId, batchId)
                 .orElseThrow(() -> new PromptNotFoundException(promptId));
         return BatchPromptResponse.from(prompt);
+    }
+
+    private String resolveReferenceMediaUrl(Long batchId, PromptType promptType,
+                                             String referenceMediaUrl, Long referencePromptId) {
+        if (referencePromptId == null) return referenceMediaUrl;
+
+        if (promptType != PromptType.IMAGE_EDIT && promptType != PromptType.VIDEO_EDIT) {
+            throw new IllegalArgumentException("referencePromptId is only allowed for IMAGE_EDIT or VIDEO_EDIT");
+        }
+        if (referenceMediaUrl != null) {
+            throw new IllegalArgumentException("referenceMediaUrl and referencePromptId cannot be specified together");
+        }
+        BatchPrompt refPrompt = promptRepository.findByIdAndBatchId(referencePromptId, batchId)
+                .orElseThrow(() -> new PromptNotFoundException(referencePromptId));
+        if (refPrompt.getResultMediaPath() == null) {
+            throw new ReferencePromptNotCompletedException(referencePromptId);
+        }
+        return "/api/media/" + batchId + "/" + referencePromptId;
     }
 
     private String resolveLabel(String label, Batch batch) {

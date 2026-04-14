@@ -1,9 +1,13 @@
 package org.jh.batchbridge.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import org.mockito.ArgumentCaptor;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -126,7 +130,7 @@ class PromptControllerTest {
     }
 
     @Test
-    void addPrompt_WithoutPromptType_DefaultsToText() throws Exception {
+    void addPrompt_WithoutPromptType_PassesNullToService() throws Exception {
         PromptAddRequest request = new PromptAddRequest("label", "system", "user");
         BatchPromptResponse response = new BatchPromptResponse(1L, "label", "system", "user", PromptStatus.PENDING, null, null);
 
@@ -135,9 +139,11 @@ class PromptControllerTest {
         mockMvc.perform(post("/api/batches/1/prompts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.promptType").value("TEXT"));
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<PromptAddRequest> captor = ArgumentCaptor.forClass(PromptAddRequest.class);
+        verify(promptService).addPrompt(eq(1L), captor.capture());
+        assertThat(captor.getValue().promptType()).isNull();
     }
 
     @Test

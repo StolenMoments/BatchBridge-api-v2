@@ -76,6 +76,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", e.getMessage());
     }
 
+    @ExceptionHandler(ReferencePromptNotCompletedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleReferencePromptNotCompleted(ReferencePromptNotCompletedException e) {
+        return buildError(HttpStatus.UNPROCESSABLE_ENTITY, "REFERENCE_PROMPT_NOT_COMPLETED", e.getMessage());
+    }
+
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
         String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());
