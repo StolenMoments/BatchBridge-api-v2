@@ -219,7 +219,23 @@ class XAIBatchAdapterTest {
                 )
         ), Set.of(103L), null);
 
-        assertThat(results).containsEntry(103L, new PromptResult(false, null, "Prompt violates content policy", null));
+        assertThat(results).containsEntry(103L,
+                new PromptResult(false, null, "[content_policy_violation] Prompt violates content policy", null));
+    }
+
+    @Test
+    void parseResultsPageIncludesErrorCodeInMessageWhenPresent() {
+        Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
+                new XAIBatchAdapter.XAIResultItem(
+                        "104",
+                        new XAIBatchAdapter.XAIBatchResult(null, null, null,
+                                new XAIBatchAdapter.XAIBatchError(null, "rate_limit_exceeded")),
+                        null
+                )
+        ), Set.of(104L), null);
+
+        assertThat(results.get(104L).success()).isFalse();
+        assertThat(results.get(104L).errorMessage()).isEqualTo("[rate_limit_exceeded] Unknown error");
     }
 
     // ─── toBatchStatus ────────────────────────────────────────────────────────
@@ -461,6 +477,30 @@ class XAIBatchAdapterTest {
         assertThatThrownBy(() -> adapter.submitBatch(new BatchSubmitRequest("grok-3", List.of())))
                 .isInstanceOf(ExternalApiException.class)
                 .hasMessageContaining("Failed to submit xAI batch");
+    }
+
+    @Test
+    void submitBatchThrowsWhenImageEditMissingReferenceUrl() {
+        assertThatThrownBy(() -> adapter.submitBatch(new BatchSubmitRequest(
+                "grok-imagine-image",
+                List.of(new BatchSubmitRequest.PromptItem(
+                        205L, null, "add a rainbow", PromptType.IMAGE_EDIT, null, List.of()
+                ))
+        )))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("referenceMediaUrl is required for IMAGE_EDIT");
+    }
+
+    @Test
+    void submitBatchThrowsWhenVideoEditMissingReferenceUrl() {
+        assertThatThrownBy(() -> adapter.submitBatch(new BatchSubmitRequest(
+                "grok-imagine-video",
+                List.of(new BatchSubmitRequest.PromptItem(
+                        206L, null, "slow motion", PromptType.VIDEO_EDIT, null, List.of()
+                ))
+        )))
+                .isInstanceOf(ExternalApiException.class)
+                .hasMessageContaining("referenceMediaUrl is required for VIDEO_EDIT");
     }
 
     // ─── fetchStatus ──────────────────────────────────────────────────────────

@@ -94,6 +94,7 @@ public class XAIBatchAdapter implements BatchApiPort {
 
     @Override
     public ExternalBatchId submitBatch(BatchSubmitRequest request) {
+        validateRequest(request);
         try {
             XAIBatchResponse createdBatch = restClient.post()
                     .uri("/v1/batches")
@@ -295,15 +296,22 @@ public class XAIBatchAdapter implements BatchApiPort {
             return new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
         }
         if (imageResponse != null && StringUtils.hasText(imageResponse.url())) {
+            if (batchId == null) {
+                log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+            }
             String mediaPath = mediaStorageService.download(batchId, promptId, imageResponse.url());
             return new PromptResult(true, null, null, mediaPath);
         }
         if (videoResponse != null && StringUtils.hasText(videoResponse.url())) {
+            if (batchId == null) {
+                log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+            }
             String mediaPath = mediaStorageService.download(batchId, promptId, videoResponse.url());
             return new PromptResult(true, null, null, mediaPath);
         }
         if (error != null) {
-            String errorMessage = StringUtils.hasText(error.message()) ? error.message() : "Unknown error";
+            String errorMessage = (StringUtils.hasText(error.code()) ? "[" + error.code() + "] " : "")
+                    + (StringUtils.hasText(error.message()) ? error.message() : "Unknown error");
             return new PromptResult(false, null, errorMessage, null);
         }
 
@@ -334,6 +342,19 @@ public class XAIBatchAdapter implements BatchApiPort {
             return ExternalBatchStatus.COMPLETED;
         }
         return ExternalBatchStatus.IN_PROGRESS;
+    }
+
+    private void validateRequest(BatchSubmitRequest request) {
+        if (request.prompts() == null) {
+            return;
+        }
+        for (BatchSubmitRequest.PromptItem prompt : request.prompts()) {
+            PromptType promptType = prompt.promptType() != null ? prompt.promptType() : PromptType.TEXT;
+            if ((promptType == PromptType.IMAGE_EDIT || promptType == PromptType.VIDEO_EDIT)
+                    && !StringUtils.hasText(prompt.referenceMediaUrl())) {
+                throw new ExternalApiException("referenceMediaUrl is required for " + promptType);
+            }
+        }
     }
 
     private List<Map<String, Object>> buildBatchRequests(BatchSubmitRequest request) {
