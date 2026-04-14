@@ -24,10 +24,12 @@ import org.jh.batchbridge.dto.external.ExternalBatchId;
 import org.jh.batchbridge.dto.external.ExternalBatchStatus;
 import org.jh.batchbridge.dto.response.ModelInfo;
 import org.jh.batchbridge.exception.ExternalApiException;
+import org.jh.batchbridge.service.MediaStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -48,13 +50,15 @@ public class XAIBatchAdapter implements BatchApiPort {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final MediaStorageService mediaStorageService;
 
     @Autowired
     public XAIBatchAdapter(
             @Value("${batch-bridge.api-keys.grok}") String apiKey,
             @Value("${batch-bridge.xai.connect-timeout-ms:10000}") int connectTimeout,
             @Value("${batch-bridge.xai.read-timeout-ms:60000}") int readTimeout,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            MediaStorageService mediaStorageService
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(connectTimeout))
@@ -69,11 +73,13 @@ public class XAIBatchAdapter implements BatchApiPort {
                 .defaultHeader("Content-Type", "application/json")
                 .build();
         this.objectMapper = objectMapper;
+        this.mediaStorageService = mediaStorageService;
     }
 
-    XAIBatchAdapter(RestClient restClient, ObjectMapper objectMapper) {
+    XAIBatchAdapter(RestClient restClient, ObjectMapper objectMapper, MediaStorageService mediaStorageService) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.mediaStorageService = mediaStorageService;
     }
 
     @Override
@@ -82,7 +88,13 @@ public class XAIBatchAdapter implements BatchApiPort {
     }
 
     @Override
+    public boolean supportsPromptType(PromptType promptType) {
+        return true;
+    }
+
+    @Override
     public ExternalBatchId submitBatch(BatchSubmitRequest request) {
+        validateRequest(request);
         try {
             XAIBatchResponse createdBatch = restClient.post()
                     .uri("/v1/batches")
@@ -139,6 +151,13 @@ public class XAIBatchAdapter implements BatchApiPort {
                         .filter(Objects::nonNull)
                         .collect(toSet());
 
+        Long internalBatchId = (prompts == null || prompts.isEmpty()) ? null :
+                prompts.stream()
+                        .map(p -> p.getBatch() != null ? p.getBatch().getId() : null)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
+
         try {
             Map<Long, PromptResult> results = new LinkedHashMap<>();
             String paginationToken = null;
@@ -167,7 +186,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                     throw new ExternalApiException("xAI batch results response is empty for id: " + externalBatchId.value());
                 }
 
-                results.putAll(parseResultsPage(page.results(), expectedPromptIds));
+                results.putAll(parseResultsPage(page.results(), expectedPromptIds, internalBatchId));
                 if (!StringUtils.hasText(page.paginationToken())) {
                     return results;
                 }
@@ -189,17 +208,23 @@ public class XAIBatchAdapter implements BatchApiPort {
                     .retrieve()
                     .body(XAIModelsResponse.class);
 
-            if (response == null || response.data() == null) {
-                return List.of();
+            List<ModelInfo> result = new ArrayList<>();
+
+            if (response != null && response.data() != null) {
+                response.data().stream()
+                        .filter(model -> isMainGrokModel(model.id()))
+                        .max(Comparator.comparingLong(XAIModelData::created)
+                                .thenComparing(XAIModelData::id))
+                        .map(model -> new ModelInfo(model.id(), model.id(), List.of(PromptType.TEXT)))
+                        .ifPresent(result::add);
             }
 
-            return response.data().stream()
-                    .filter(model -> isMainGrokModel(model.id()))
-                    .max(Comparator.comparingLong(XAIModelData::created)
-                            .thenComparing(XAIModelData::id))
-                    .map(model -> new ModelInfo(model.id(), model.id(), List.of(PromptType.TEXT)))
-                    .map(List::of)
-                    .orElse(List.of());
+            result.add(new ModelInfo("grok-imagine-image", "grok-imagine-image",
+                    List.of(PromptType.IMAGE_GENERATION, PromptType.IMAGE_EDIT)));
+            result.add(new ModelInfo("grok-imagine-video", "grok-imagine-video",
+                    List.of(PromptType.VIDEO_GENERATION, PromptType.VIDEO_EDIT)));
+
+            return result;
         } catch (Exception e) {
             log.error("Failed to fetch xAI models: {}", e.getMessage());
             throw new ExternalApiException("Failed to fetch xAI models", e);
@@ -225,7 +250,8 @@ public class XAIBatchAdapter implements BatchApiPort {
         return input;
     }
 
-    Map<Long, PromptResult> parseResultsPage(List<XAIResultItem> results, Set<Long> expectedPromptIds) {
+    Map<Long, PromptResult> parseResultsPage(List<XAIResultItem> results, Set<Long> expectedPromptIds,
+                                             @Nullable Long batchId) {
         if (results == null || results.isEmpty()) {
             return Map.of();
         }
@@ -254,21 +280,46 @@ public class XAIBatchAdapter implements BatchApiPort {
                 continue;
             }
 
-            XAIResponsePayload response = result.batchResult().response();
-            PromptResult promptResult;
-            if (response != null && response.chatGetCompletion() != null) {
-                promptResult = new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
-            } else {
-                String errorMessage = result.errorMessage();
-                if (!StringUtils.hasText(errorMessage)) {
-                    errorMessage = "Unknown error";
-                }
-                promptResult = new PromptResult(false, null, errorMessage, null);
-            }
-
-            parsed.put(promptId, promptResult);
+            parsed.put(promptId, parsePromptResult(result, promptId, batchId));
         }
         return parsed;
+    }
+
+    private PromptResult parsePromptResult(XAIResultItem result, Long promptId, @Nullable Long batchId) {
+        XAIBatchResult batchResult = result.batchResult();
+        XAIResponsePayload response = batchResult.response();
+        XAIImageResponse imageResponse = batchResult.imageResponse();
+        XAIVideoResponse videoResponse = batchResult.videoResponse();
+        XAIBatchError error = batchResult.error();
+
+        if (response != null && response.chatGetCompletion() != null) {
+            return new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
+        }
+        if (imageResponse != null && StringUtils.hasText(imageResponse.url())) {
+            if (batchId == null) {
+                log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+            }
+            String mediaPath = mediaStorageService.download(batchId, promptId, imageResponse.url());
+            return new PromptResult(true, null, null, mediaPath);
+        }
+        if (videoResponse != null && StringUtils.hasText(videoResponse.url())) {
+            if (batchId == null) {
+                log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+            }
+            String mediaPath = mediaStorageService.download(batchId, promptId, videoResponse.url());
+            return new PromptResult(true, null, null, mediaPath);
+        }
+        if (error != null) {
+            String errorMessage = (StringUtils.hasText(error.code()) ? "[" + error.code() + "] " : "")
+                    + (StringUtils.hasText(error.message()) ? error.message() : "Unknown error");
+            return new PromptResult(false, null, errorMessage, null);
+        }
+
+        String errorMessage = result.errorMessage();
+        if (!StringUtils.hasText(errorMessage)) {
+            errorMessage = "Unknown error";
+        }
+        return new PromptResult(false, null, errorMessage, null);
     }
 
     ExternalBatchStatus toBatchStatus(XAIBatchState state) {
@@ -293,18 +344,68 @@ public class XAIBatchAdapter implements BatchApiPort {
         return ExternalBatchStatus.IN_PROGRESS;
     }
 
+    private void validateRequest(BatchSubmitRequest request) {
+        if (request.prompts() == null) {
+            return;
+        }
+        for (BatchSubmitRequest.PromptItem prompt : request.prompts()) {
+            PromptType promptType = prompt.promptType() != null ? prompt.promptType() : PromptType.TEXT;
+            if ((promptType == PromptType.IMAGE_EDIT || promptType == PromptType.VIDEO_EDIT)
+                    && !StringUtils.hasText(prompt.referenceMediaUrl())) {
+                throw new ExternalApiException("referenceMediaUrl is required for " + promptType);
+            }
+        }
+    }
+
     private List<Map<String, Object>> buildBatchRequests(BatchSubmitRequest request) {
         return request.prompts().stream()
                 .map(prompt -> Map.<String, Object>of(
                         "batch_request_id", String.valueOf(prompt.promptId()),
-                        "batch_request", Map.of(
-                                "responses", Map.of(
-                                        "model", request.model(),
-                                        "input", buildUserInput(prompt)
-                                )
-                        )
+                        "batch_request", buildBatchRequestBody(request.model(), prompt)
                 ))
                 .toList();
+    }
+
+    private Map<String, Object> buildBatchRequestBody(String model, BatchSubmitRequest.PromptItem prompt) {
+        PromptType promptType = prompt.promptType() != null ? prompt.promptType() : PromptType.TEXT;
+        return switch (promptType) {
+            case TEXT -> Map.of(
+                    "responses", Map.of(
+                            "model", model,
+                            "input", buildUserInput(prompt)
+                    )
+            );
+            case IMAGE_GENERATION -> Map.of(
+                    "image_generation", Map.of(
+                            "model", model,
+                            "prompt", prompt.userPrompt(),
+                            "n", 1,
+                            "response_format", "url"
+                    )
+            );
+            case IMAGE_EDIT -> Map.of(
+                    "url", "/v1/images/edits",
+                    "body", Map.of(
+                            "model", model,
+                            "prompt", prompt.userPrompt(),
+                            "image", Map.of("url", prompt.referenceMediaUrl())
+                    )
+            );
+            case VIDEO_GENERATION -> Map.of(
+                    "video_generation", Map.of(
+                            "model", model,
+                            "prompt", prompt.userPrompt()
+                    )
+            );
+            case VIDEO_EDIT -> Map.of(
+                    "url", "/v1/videos/edits",
+                    "body", Map.of(
+                            "model", model,
+                            "prompt", prompt.userPrompt(),
+                            "video", Map.of("url", prompt.referenceMediaUrl())
+                    )
+            );
+        };
     }
 
     private String buildUserContent(BatchSubmitRequest.PromptItem prompt) {
@@ -377,7 +478,7 @@ public class XAIBatchAdapter implements BatchApiPort {
     ) {
     }
 
-    // TODO(cleanup): XAIBatchState, XAIResultItem은 내부 구현 세부사항이므로 private으로 변경이 바람직합니다.
+    // TODO(cleanup): XAIBatchState, XAIResultItem 등은 내부 구현 세부사항이므로 private으로 변경이 바람직합니다.
     //   현재 테스트(XAIBatchAdapterTest)가 동일 패키지에서 직접 생성하기 때문에 package-private 상태입니다.
     //   추후 테스트를 MockRestServiceServer 기반 HTTP 응답 방식으로 리팩터링할 때 private으로 전환하세요.
     record XAIBatchState(
@@ -403,12 +504,31 @@ public class XAIBatchAdapter implements BatchApiPort {
     }
 
     record XAIBatchResult(
-            XAIResponsePayload response
+            XAIResponsePayload response,
+            @JsonProperty("image_response") XAIImageResponse imageResponse,
+            @JsonProperty("video_response") XAIVideoResponse videoResponse,
+            XAIBatchError error
     ) {
     }
 
     record XAIResponsePayload(
             @JsonProperty("chat_get_completion") XAIChatCompletion chatGetCompletion
+    ) {
+    }
+
+    record XAIImageResponse(
+            String url
+    ) {
+    }
+
+    record XAIVideoResponse(
+            String url
+    ) {
+    }
+
+    record XAIBatchError(
+            String message,
+            String code
     ) {
     }
 
