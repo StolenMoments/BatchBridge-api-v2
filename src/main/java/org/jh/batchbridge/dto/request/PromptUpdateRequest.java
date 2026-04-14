@@ -10,6 +10,7 @@ public record PromptUpdateRequest(
         @Nullable String userPrompt,
         @Nullable PromptType promptType,
         @Nullable String referenceMediaUrl,
+        @Nullable Long referencePromptId,
         @Nullable List<PromptAttachmentRequest> attachments
 ) {
 }

@@ -48,11 +48,12 @@ public class PromptService {
                     .toList();
         }
 
+        PromptType promptType = request.promptType() != null ? request.promptType() : PromptType.TEXT;
         BatchPrompt prompt = BatchPrompt.create(
                 resolveLabel(request.label(), batch),
                 request.systemPrompt(),
                 request.userPrompt(),
-                request.promptType(),
+                promptType,
                 request.referenceMediaUrl(),
                 attachments
         );
@@ -94,7 +95,7 @@ public class PromptService {
                     .toList();
         }
 
-        PromptType promptType = request.promptType() != null ? request.promptType() : prompt.getPromptType();
+        PromptType promptType = request.promptType() != null ? request.promptType() : (prompt.getPromptType() != null ? prompt.getPromptType() : PromptType.TEXT);
         String referenceMediaUrl = request.referenceMediaUrl() != null ? request.referenceMediaUrl() : prompt.getReferenceMediaUrl();
         prompt.update(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, attachments);
 
