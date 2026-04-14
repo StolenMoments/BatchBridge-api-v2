@@ -13,7 +13,7 @@ public record BatchPromptResponse(
         PromptStatus status,
         PromptType promptType,
         String referenceMediaUrl,
-        String resultMediaPath,
+        String resultMediaUrl,
         String responseContent,
         String errorMessage,
         List<PromptAttachmentResponse> attachments
@@ -23,6 +23,9 @@ public record BatchPromptResponse(
     }
 
     public static BatchPromptResponse from(BatchPrompt prompt) {
+        String resultMediaUrl = prompt.getResultMediaPath() != null
+                ? "/api/media/" + prompt.getBatch().getId() + "/" + prompt.getId()
+                : null;
         return new BatchPromptResponse(
                 prompt.getId(),
                 prompt.getLabel(),
@@ -31,7 +34,7 @@ public record BatchPromptResponse(
                 prompt.getStatus(),
                 prompt.getPromptType(),
                 prompt.getReferenceMediaUrl(),
-                prompt.getResultMediaPath(),
+                resultMediaUrl,
                 prompt.getResponseContent(),
                 prompt.getErrorMessage(),
                 prompt.getAttachments().stream()

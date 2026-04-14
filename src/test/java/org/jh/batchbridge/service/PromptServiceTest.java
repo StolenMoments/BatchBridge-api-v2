@@ -88,7 +88,7 @@ class PromptServiceTest {
                 .label("old")
                 .userPrompt("old")
                 .build();
-        PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, "new-user", null, null, null);
+        PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, "new-user", null, null, null, null);
 
         when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
         when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
@@ -101,7 +101,7 @@ class PromptServiceTest {
 
     @Test
     void updatePrompt_WrongBatch_ThrowsException() {
-        PromptUpdateRequest request = new PromptUpdateRequest("new", null, "new", null, null, null);
+        PromptUpdateRequest request = new PromptUpdateRequest("new", null, "new", null, null, null, null);
 
         when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.empty());
 
@@ -126,7 +126,7 @@ class PromptServiceTest {
     @Test
     void addPrompt_WithAttachments_Success() {
         PromptAttachmentRequest attRequest = new PromptAttachmentRequest("file.txt", "content");
-        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", null, null, List.of(attRequest));
+        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", null, null, null, List.of(attRequest));
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
         when(promptRepository.save(any(BatchPrompt.class))).thenAnswer(invocation -> {
@@ -145,7 +145,7 @@ class PromptServiceTest {
     void addPrompt_AttachmentTooLarge_ThrowsException() {
         String largeContent = "a".repeat(1_000_001);
         PromptAttachmentRequest attRequest = new PromptAttachmentRequest("large.txt", largeContent);
-        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", null, null, List.of(attRequest));
+        PromptAddRequest request = new PromptAddRequest("label", "sys", "user", null, null, null, List.of(attRequest));
 
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
 
@@ -187,7 +187,7 @@ class PromptServiceTest {
                 .systemPrompt("original-sys")
                 .userPrompt("original-user")
                 .build();
-        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, null, null, null);
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, null, null, null, null);
 
         when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
         when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
@@ -210,7 +210,7 @@ class PromptServiceTest {
         when(promptRepository.findByIdAndBatchId(10L, 2L)).thenReturn(Optional.of(prompt));
 
         assertThatThrownBy(() -> promptService.updatePrompt(2L, 10L,
-                new PromptUpdateRequest("new", null, "new", null, null, null)))
+                new PromptUpdateRequest("new", null, "new", null, null, null, null)))
                 .isInstanceOf(BatchNotEditableException.class);
     }
 
