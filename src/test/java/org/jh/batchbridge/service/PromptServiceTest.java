@@ -296,6 +296,126 @@ class PromptServiceTest {
     }
 
     @Test
+    void addPrompt_WithReferencePromptId_NotInSameBatch_Throws404() {
+        PromptAddRequest request = new PromptAddRequest("label", null, "user", PromptType.IMAGE_EDIT, null, 5L, null);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));
+        when(promptRepository.findByIdAndBatchId(5L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> promptService.addPrompt(1L, request))
+                .isInstanceOf(PromptNotFoundException.class);
+    }
+
+    @Test
+    void updatePrompt_WithReferencePromptId_SetsReferenceMediaUrl() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("old")
+                .userPrompt("old")
+                .promptType(PromptType.IMAGE_EDIT)
+                .build();
+        BatchPrompt refPrompt = BatchPrompt.builder()
+                .id(5L)
+                .batch(draftBatch)
+                .label("ref")
+                .userPrompt("ref-user")
+                .promptType(PromptType.IMAGE_EDIT)
+                .resultMediaPath("storage/result.png")
+                .build();
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, PromptType.IMAGE_EDIT, null, 5L, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.findByIdAndBatchId(5L, 1L)).thenReturn(Optional.of(refPrompt));
+        when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
+
+        BatchPromptResponse response = promptService.updatePrompt(1L, 10L, request);
+
+        assertThat(response.referenceMediaUrl()).isEqualTo("/api/media/1/5");
+    }
+
+    @Test
+    void updatePrompt_WithReferencePromptId_InvalidPromptType_Throws400() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("old")
+                .userPrompt("old")
+                .build();
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, PromptType.TEXT, null, 5L, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+
+        assertThatThrownBy(() -> promptService.updatePrompt(1L, 10L, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("IMAGE_EDIT or VIDEO_EDIT");
+    }
+
+    @Test
+    void updatePrompt_WithReferencePromptIdAndReferenceMediaUrl_Throws400() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("old")
+                .userPrompt("old")
+                .build();
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, PromptType.IMAGE_EDIT,
+                "http://existing.url/media.png", 5L, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+
+        assertThatThrownBy(() -> promptService.updatePrompt(1L, 10L, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be specified together");
+    }
+
+    @Test
+    void updatePrompt_WithReferencePromptId_RefPromptNotCompleted_Throws422() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("old")
+                .userPrompt("old")
+                .promptType(PromptType.IMAGE_EDIT)
+                .build();
+        BatchPrompt refPrompt = BatchPrompt.builder()
+                .id(5L)
+                .batch(draftBatch)
+                .label("ref")
+                .userPrompt("ref-user")
+                .promptType(PromptType.IMAGE_EDIT)
+                .build(); // resultMediaPath is null
+        PromptUpdateRequest request = new PromptUpdateRequest(null, null, null, PromptType.IMAGE_EDIT, null, 5L, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.findByIdAndBatchId(5L, 1L)).thenReturn(Optional.of(refPrompt));
+
+        assertThatThrownBy(() -> promptService.updatePrompt(1L, 10L, request))
+                .isInstanceOf(ReferencePromptNotCompletedException.class);
+    }
+
+    @Test
+    void updatePrompt_KeepsReferenceFields_WhenBothNull() {
+        BatchPrompt prompt = BatchPrompt.builder()
+                .id(10L)
+                .batch(draftBatch)
+                .label("old")
+                .userPrompt("old")
+                .promptType(PromptType.IMAGE_EDIT)
+                .referenceMediaUrl("/api/media/1/5")
+                .referencePromptId(5L)
+                .build();
+        PromptUpdateRequest request = new PromptUpdateRequest("new-label", null, null, null, null, null, null);
+
+        when(promptRepository.findByIdAndBatchId(10L, 1L)).thenReturn(Optional.of(prompt));
+        when(promptRepository.save(any(BatchPrompt.class))).thenReturn(prompt);
+
+        BatchPromptResponse response = promptService.updatePrompt(1L, 10L, request);
+
+        assertThat(response.referenceMediaUrl()).isEqualTo("/api/media/1/5");
+    }
+
+    @Test
     void addPrompt_DefaultLabel_WhenLabelIsNull() {
         PromptAddRequest request = new PromptAddRequest(null, "sys", "user");
         when(batchRepository.findById(1L)).thenReturn(Optional.of(draftBatch));

@@ -100,11 +100,18 @@ public class PromptService {
         }
 
         PromptType promptType = request.promptType() != null ? request.promptType() : prompt.getPromptType();
-        Long referencePromptId = request.referencePromptId() != null ? request.referencePromptId() : prompt.getReferencePromptId();
-        String referenceMediaUrl = request.referenceMediaUrl() != null ? request.referenceMediaUrl() : prompt.getReferenceMediaUrl();
-        String resolvedReferenceMediaUrl = resolveReferenceMediaUrl(
-                batchId, promptType, referenceMediaUrl, referencePromptId);
-        prompt.update(label, systemPrompt, userPrompt, promptType, resolvedReferenceMediaUrl, referencePromptId, attachments);
+        String resolvedReferenceMediaUrl;
+        Long resolvedReferencePromptId;
+        if (request.referencePromptId() == null && request.referenceMediaUrl() == null) {
+            // 참조 필드 변경 의도 없음 → 기존 값 유지, 재검증 스킵
+            resolvedReferenceMediaUrl = prompt.getReferenceMediaUrl();
+            resolvedReferencePromptId = prompt.getReferencePromptId();
+        } else {
+            resolvedReferenceMediaUrl = resolveReferenceMediaUrl(
+                    batchId, promptType, request.referenceMediaUrl(), request.referencePromptId());
+            resolvedReferencePromptId = request.referencePromptId();
+        }
+        prompt.update(label, systemPrompt, userPrompt, promptType, resolvedReferenceMediaUrl, resolvedReferencePromptId, attachments);
 
         return BatchPromptResponse.from(promptRepository.save(prompt));
     }

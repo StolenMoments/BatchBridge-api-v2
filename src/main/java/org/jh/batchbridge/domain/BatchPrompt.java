@@ -104,12 +104,6 @@ public class BatchPrompt {
 
     public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
                                      PromptType promptType, String referenceMediaUrl,
-                                     List<PromptAttachment> attachments) {
-        return create(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, null, attachments);
-    }
-
-    public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
-                                     PromptType promptType, String referenceMediaUrl,
                                      Long referencePromptId, List<PromptAttachment> attachments) {
         BatchPrompt prompt = BatchPrompt.builder()
                 .label(label)
