@@ -42,3 +42,7 @@ AGENTS.md
 GEMINI.md
 CLAUDE.
 application-local.yaml
+
+### Local ###
+docs/
+.claude/
