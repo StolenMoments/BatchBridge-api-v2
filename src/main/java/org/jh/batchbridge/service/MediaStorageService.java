@@ -86,15 +86,19 @@ public class MediaStorageService {
         String type = contentType.getType();
         String subtype = contentType.getSubtype();
         return switch (type) {
-            case "image" -> {
-                if (subtype.equals("*")) yield "png";
-                yield switch (subtype) {
-                    case "jpeg", "jpg" -> "jpg";
-                    case "svg+xml" -> "svg";
-                    default -> subtype;
-                };
-            }
-            case "video" -> subtype.equals("*") ? "mp4" : subtype;
+            case "image" -> switch (subtype) {
+                case "jpeg", "jpg" -> "jpg";
+                case "png"         -> "png";
+                case "gif"         -> "gif";
+                case "svg+xml"     -> "svg";
+                case "webp"        -> "webp";
+                default            -> "png";
+            };
+            case "video" -> switch (subtype) {
+                case "mp4"  -> "mp4";
+                case "webm" -> "webm";
+                default     -> "mp4";
+            };
             default -> "png";
         };
     }

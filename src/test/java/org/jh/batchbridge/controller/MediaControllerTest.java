@@ -3,6 +3,7 @@ package org.jh.batchbridge.controller;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,16 +17,21 @@ import org.jh.batchbridge.exception.MediaNotFoundException;
 import org.jh.batchbridge.repository.BatchPromptRepository;
 import org.jh.batchbridge.service.MediaStorageService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = MediaController.class)
 @Import({GlobalExceptionHandler.class})
 class MediaControllerTest {
+
+    @TempDir
+    Path tempDir;
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,46 +47,42 @@ class MediaControllerTest {
 
     @Test
     void getMedia_ImageFile_Returns200WithImageContentType() throws Exception {
-        Path tempFile = Files.createTempFile("media-test", ".png");
-        tempFile.toFile().deleteOnExit();
-        Files.write(tempFile, new byte[]{1, 2, 3});
+        Path file = tempDir.resolve("1.png");
+        Files.write(file, new byte[]{1, 2, 3});
 
         BatchPrompt prompt = BatchPrompt.builder()
                 .label("label")
                 .userPrompt("user")
-                .resultMediaPath(tempFile.toString())
+                .resultMediaPath(file.toString())
                 .build();
 
         when(batchPromptRepository.findByIdAndBatchId(1L, 1L)).thenReturn(Optional.of(prompt));
-        when(mediaStorageService.getFilePath(1L, 1L)).thenReturn(tempFile);
+        when(mediaStorageService.getFilePath(1L, 1L)).thenReturn(file);
 
         mockMvc.perform(get("/api/media/1/1"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("image/png"));
-
-        Files.deleteIfExists(tempFile);
+                .andExpect(content().contentTypeCompatibleWith("image/png"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"1.png\""));
     }
 
     @Test
     void getMedia_VideoFile_Returns200WithVideoContentType() throws Exception {
-        Path tempFile = Files.createTempFile("media-test", ".mp4");
-        tempFile.toFile().deleteOnExit();
-        Files.write(tempFile, new byte[]{1, 2, 3});
+        Path file = tempDir.resolve("2.mp4");
+        Files.write(file, new byte[]{1, 2, 3});
 
         BatchPrompt prompt = BatchPrompt.builder()
                 .label("label")
                 .userPrompt("user")
-                .resultMediaPath(tempFile.toString())
+                .resultMediaPath(file.toString())
                 .build();
 
         when(batchPromptRepository.findByIdAndBatchId(2L, 1L)).thenReturn(Optional.of(prompt));
-        when(mediaStorageService.getFilePath(1L, 2L)).thenReturn(tempFile);
+        when(mediaStorageService.getFilePath(1L, 2L)).thenReturn(file);
 
         mockMvc.perform(get("/api/media/1/2"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("video/mp4"));
-
-        Files.deleteIfExists(tempFile);
+                .andExpect(content().contentTypeCompatibleWith("video/mp4"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"2.mp4\""));
     }
 
     @Test

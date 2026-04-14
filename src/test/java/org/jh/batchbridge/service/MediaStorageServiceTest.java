@@ -138,8 +138,11 @@ class MediaStorageServiceTest {
                 Arguments.of("image/png", "png"),
                 Arguments.of("image/gif", "gif"),
                 Arguments.of("image/svg+xml", "svg"),
+                Arguments.of("image/webp", "webp"),
+                Arguments.of("image/x-unknown", "png"),   // 알 수 없는 image/* → png fallback
                 Arguments.of("video/mp4", "mp4"),
                 Arguments.of("video/webm", "webm"),
+                Arguments.of("video/x-unknown", "mp4"),   // 알 수 없는 video/* → mp4 fallback
                 Arguments.of("application/octet-stream", "png")
         );
     }

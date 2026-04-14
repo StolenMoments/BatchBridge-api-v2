@@ -10,6 +10,8 @@ import org.jh.batchbridge.repository.BatchPromptRepository;
 import org.jh.batchbridge.service.MediaStorageService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,9 +50,15 @@ public class MediaController {
 
         String contentType = determineContentType(filePath);
 
+        String filename = filePath.getFileName().toString();
         Resource resource = new FileSystemResource(filePath);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline()
+                                .filename(filename)
+                                .build()
+                                .toString())
                 .body(resource);
     }
 
