@@ -64,6 +64,9 @@ public class BatchPrompt {
     @Column(length = 2000)
     private String referenceMediaUrl;
 
+    @Column(name = "reference_prompt_id")
+    private Long referencePromptId;
+
     @Column(length = 2000)
     private String resultMediaPath;
 
@@ -96,18 +99,25 @@ public class BatchPrompt {
 
     public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
                                      PromptType promptType, String referenceMediaUrl) {
-        return create(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, null);
+        return create(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, null, null);
     }
 
     public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
                                      PromptType promptType, String referenceMediaUrl,
                                      List<PromptAttachment> attachments) {
+        return create(label, systemPrompt, userPrompt, promptType, referenceMediaUrl, null, attachments);
+    }
+
+    public static BatchPrompt create(String label, String systemPrompt, String userPrompt,
+                                     PromptType promptType, String referenceMediaUrl,
+                                     Long referencePromptId, List<PromptAttachment> attachments) {
         BatchPrompt prompt = BatchPrompt.builder()
                 .label(label)
                 .systemPrompt(systemPrompt)
                 .userPrompt(userPrompt)
                 .promptType(promptType != null ? promptType : PromptType.TEXT)
                 .referenceMediaUrl(referenceMediaUrl)
+                .referencePromptId(referencePromptId)
                 .status(PromptStatus.PENDING)
                 .build();
         if (attachments != null) {
@@ -126,7 +136,7 @@ public class BatchPrompt {
     }
 
     public void update(String label, String systemPrompt, String userPrompt,
-                       PromptType promptType, String referenceMediaUrl,
+                       PromptType promptType, String referenceMediaUrl, Long referencePromptId,
                        List<PromptAttachment> attachments) {
         if (batch != null && !batch.isEditable()) {
             throw new IllegalStateException("Cannot update prompt of a non-draft batch.");
@@ -136,6 +146,7 @@ public class BatchPrompt {
         this.userPrompt = userPrompt;
         this.promptType = promptType != null ? promptType : PromptType.TEXT;
         this.referenceMediaUrl = referenceMediaUrl;
+        this.referencePromptId = referencePromptId;
         if (attachments != null) {
             this.attachments.clear();
             attachments.forEach(this::addAttachment);
