@@ -18,13 +18,15 @@ public record BatchPromptResponse(
         String errorMessage,
         List<PromptAttachmentResponse> attachments
 ) {
+    private static final String MEDIA_URL_PREFIX = "/api/media/";
+
     public BatchPromptResponse(Long id, String label, String systemPrompt, String userPrompt, PromptStatus status, String responseContent, String errorMessage) {
         this(id, label, systemPrompt, userPrompt, status, PromptType.TEXT, null, null, responseContent, errorMessage, List.of());
     }
 
     public static BatchPromptResponse from(BatchPrompt prompt) {
         String resultMediaUrl = prompt.getResultMediaPath() != null
-                ? "/api/media/" + prompt.getBatch().getId() + "/" + prompt.getId()
+                ? MEDIA_URL_PREFIX + prompt.getBatch().getId() + "/" + prompt.getId()
                 : null;
         return new BatchPromptResponse(
                 prompt.getId(),
@@ -48,4 +50,3 @@ public record BatchPromptResponse(
         );
     }
 }
-
