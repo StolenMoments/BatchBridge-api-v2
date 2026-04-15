@@ -2,7 +2,7 @@ name: CodeQL Analysis
 
 on:
   push:
-    branches: [ master ]
+    branches-ignore: []  # 모든 브랜치 push 시 실행
   pull_request:
     branches: [ master ]
   schedule:
