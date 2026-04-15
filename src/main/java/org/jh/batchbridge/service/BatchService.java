@@ -89,6 +89,9 @@ public class BatchService {
                 promptLabel,
                 promptPayload.systemPrompt(),
                 promptPayload.userPrompt(),
+                promptPayload.promptType(),
+                promptPayload.referenceMediaUrl(),
+                null,
                 attachments
         );
         batch.addPrompt(prompt);
