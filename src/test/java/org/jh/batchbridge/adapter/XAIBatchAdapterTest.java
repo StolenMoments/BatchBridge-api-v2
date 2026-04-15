@@ -234,37 +234,17 @@ class XAIBatchAdapterTest {
     }
 
     @Test
-    void parseResultsPageTreatsXAIBatchErrorAsFailure() {
+    void parseResultsPageTreatsStringErrorAsFailure() {
         Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
                 new XAIBatchAdapter.XAIResultItem(
                         "103",
-                        new XAIBatchAdapter.XAIBatchResult(
-                                null,
-                                null,
-                                null,
-                                new XAIBatchAdapter.XAIBatchError("Prompt violates content policy", "content_policy_violation")
-                        ),
+                        new XAIBatchAdapter.XAIBatchResult(null, null, null, "Content violates usage guidelines"),
                         null
                 )
         ), Set.of(103L), null);
 
         assertThat(results).containsEntry(103L,
-                new PromptResult(false, null, "[content_policy_violation] Prompt violates content policy", null));
-    }
-
-    @Test
-    void parseResultsPageIncludesErrorCodeInMessageWhenPresent() {
-        Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
-                new XAIBatchAdapter.XAIResultItem(
-                        "104",
-                        new XAIBatchAdapter.XAIBatchResult(null, null, null,
-                                new XAIBatchAdapter.XAIBatchError(null, "rate_limit_exceeded")),
-                        null
-                )
-        ), Set.of(104L), null);
-
-        assertThat(results.get(104L).success()).isFalse();
-        assertThat(results.get(104L).errorMessage()).isEqualTo("[rate_limit_exceeded] Unknown error");
+                new PromptResult(false, null, "Content violates usage guidelines", null));
     }
 
     // ─── toBatchStatus ────────────────────────────────────────────────────────
@@ -800,6 +780,31 @@ class XAIBatchAdapterTest {
         assertThat(adapter.fetchResults(new ExternalBatchId("batch_123"), prompts))
                 .containsEntry(101L, new PromptResult(true, "first", null, null))
                 .containsEntry(102L, new PromptResult(true, "second", null, null));
+    }
+
+    @Test
+    void fetchResultsParsesStringErrorFromJson() {
+        server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123/results?page_size=100"))
+                .andExpect(queryParam("page_size", "100"))
+                .andRespond(withSuccess("""
+                        {
+                          "results": [
+                            {
+                              "batch_request_id": "4",
+                              "batch_result": {
+                                "error": "Content violates usage guidelines. Failed check: SAFETY_CHECK_TYPE_BIO"
+                              }
+                            }
+                          ],
+                          "pagination_token": null
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<BatchPrompt> prompts = List.of(BatchPrompt.builder().id(4L).build());
+        Map<Long, PromptResult> results = adapter.fetchResults(new ExternalBatchId("batch_123"), prompts);
+
+        assertThat(results.get(4L).success()).isFalse();
+        assertThat(results.get(4L).errorMessage()).contains("Content violates usage guidelines");
     }
 
     @Test

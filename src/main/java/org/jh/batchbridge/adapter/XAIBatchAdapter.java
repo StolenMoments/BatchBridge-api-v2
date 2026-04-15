@@ -290,7 +290,7 @@ public class XAIBatchAdapter implements BatchApiPort {
         XAIResponsePayload response = batchResult.response();
         XAIImageResponse imageResponse = batchResult.imageResponse();
         XAIVideoResponse videoResponse = batchResult.videoResponse();
-        XAIBatchError error = batchResult.error();
+        String error = batchResult.error();
 
         if (response != null) {
             if (response.chatGetCompletion() != null) {
@@ -334,10 +334,8 @@ public class XAIBatchAdapter implements BatchApiPort {
             String mediaPath = mediaStorageService.download(batchId, promptId, videoResponse.url());
             return new PromptResult(true, null, null, mediaPath);
         }
-        if (error != null) {
-            String errorMessage = (StringUtils.hasText(error.code()) ? "[" + error.code() + "] " : "")
-                    + (StringUtils.hasText(error.message()) ? error.message() : "Unknown error");
-            return new PromptResult(false, null, errorMessage, null);
+        if (StringUtils.hasText(error)) {
+            return new PromptResult(false, null, error, null);
         }
 
         String errorMessage = result.errorMessage();
@@ -524,7 +522,7 @@ public class XAIBatchAdapter implements BatchApiPort {
             XAIResponsePayload response,
             @JsonProperty("image_response") XAIImageResponse imageResponse,
             @JsonProperty("video_response") XAIVideoResponse videoResponse,
-            XAIBatchError error
+            String error
     ) {
     }
 
@@ -562,12 +560,6 @@ public class XAIBatchAdapter implements BatchApiPort {
 
     record XAIVideoResponse(
             String url
-    ) {
-    }
-
-    record XAIBatchError(
-            String message,
-            String code
     ) {
     }
 
