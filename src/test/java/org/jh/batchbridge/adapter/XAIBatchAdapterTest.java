@@ -184,6 +184,34 @@ class XAIBatchAdapterTest {
     }
 
     @Test
+    void parseResultsPageDownloadsAndStoresImageGenerationResponse() {
+        when(mediaStorageService.download(5L, 101L, "https://api.x.ai/result/image_gen.png"))
+                .thenReturn("/app/media/5/101.png");
+
+        Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
+                new XAIBatchAdapter.XAIResultItem(
+                        "101",
+                        new XAIBatchAdapter.XAIBatchResult(
+                                new XAIBatchAdapter.XAIResponsePayload(
+                                        null,
+                                        new XAIBatchAdapter.XAIImageGeneration(List.of(
+                                                new XAIBatchAdapter.XAIImageData("https://api.x.ai/result/image_gen.png")
+                                        )),
+                                        null
+                                ),
+                                null,
+                                null,
+                                null
+                        ),
+                        null
+                )
+        ), Set.of(101L), 5L);
+
+        assertThat(results).containsEntry(101L, new PromptResult(true, null, null, "/app/media/5/101.png"));
+        verify(mediaStorageService).download(5L, 101L, "https://api.x.ai/result/image_gen.png");
+    }
+
+    @Test
     void parseResultsPageDownloadsAndStoresVideoResponse() {
         when(mediaStorageService.download(5L, 102L, "https://api.x.ai/result/video.mp4"))
                 .thenReturn("/app/media/5/102.mp4");
@@ -795,7 +823,9 @@ class XAIBatchAdapterTest {
                                         new XAIBatchAdapter.XAIChoice(
                                                 new XAIBatchAdapter.XAIMessage(objectMapper.valueToTree(content))
                                         )
-                                ))
+                                )),
+                                null,
+                                null
                         ),
                         null,
                         null,

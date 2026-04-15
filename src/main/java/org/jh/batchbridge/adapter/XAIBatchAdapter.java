@@ -292,9 +292,34 @@ public class XAIBatchAdapter implements BatchApiPort {
         XAIVideoResponse videoResponse = batchResult.videoResponse();
         XAIBatchError error = batchResult.error();
 
-        if (response != null && response.chatGetCompletion() != null) {
-            return new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
+        if (response != null) {
+            if (response.chatGetCompletion() != null) {
+                return new PromptResult(true, extractText(response.chatGetCompletion()), null, null);
+            }
+            if (response.imageGeneration() != null && response.imageGeneration().data() != null
+                    && !response.imageGeneration().data().isEmpty()) {
+                String url = response.imageGeneration().data().getFirst().url();
+                if (StringUtils.hasText(url)) {
+                    if (batchId == null) {
+                        log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+                    }
+                    String mediaPath = mediaStorageService.download(batchId, promptId, url);
+                    return new PromptResult(true, null, null, mediaPath);
+                }
+            }
+            if (response.videoGeneration() != null && response.videoGeneration().data() != null
+                    && !response.videoGeneration().data().isEmpty()) {
+                String url = response.videoGeneration().data().getFirst().url();
+                if (StringUtils.hasText(url)) {
+                    if (batchId == null) {
+                        log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
+                    }
+                    String mediaPath = mediaStorageService.download(batchId, promptId, url);
+                    return new PromptResult(true, null, null, mediaPath);
+                }
+            }
         }
+
         if (imageResponse != null && StringUtils.hasText(imageResponse.url())) {
             if (batchId == null) {
                 log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
@@ -504,7 +529,29 @@ public class XAIBatchAdapter implements BatchApiPort {
     }
 
     record XAIResponsePayload(
-            @JsonProperty("chat_get_completion") XAIChatCompletion chatGetCompletion
+            @JsonProperty("chat_get_completion") XAIChatCompletion chatGetCompletion,
+            @JsonProperty("image_generation") XAIImageGeneration imageGeneration,
+            @JsonProperty("video_generation") XAIVideoGeneration videoGeneration
+    ) {
+    }
+
+    record XAIImageGeneration(
+            List<XAIImageData> data
+    ) {
+    }
+
+    record XAIImageData(
+            String url
+    ) {
+    }
+
+    record XAIVideoGeneration(
+            List<XAIVideoData> data
+    ) {
+    }
+
+    record XAIVideoData(
+            String url
     ) {
     }
 
