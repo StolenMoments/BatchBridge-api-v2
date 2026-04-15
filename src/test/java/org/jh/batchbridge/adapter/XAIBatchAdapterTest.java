@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -284,7 +285,7 @@ class XAIBatchAdapterTest {
                             }
                           ]
                         }
-                        """, true))
+                        """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         ExternalBatchId batchId = adapter.submitBatch(new BatchSubmitRequest(
@@ -329,7 +330,7 @@ class XAIBatchAdapterTest {
                             }
                           ]
                         }
-                        """, true))
+                        """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         adapter.submitBatch(new BatchSubmitRequest(
@@ -368,7 +369,7 @@ class XAIBatchAdapterTest {
                             }
                           ]
                         }
-                        """, true))
+                        """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         adapter.submitBatch(new BatchSubmitRequest(
@@ -406,7 +407,7 @@ class XAIBatchAdapterTest {
                             }
                           ]
                         }
-                        """, true))
+                        """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         adapter.submitBatch(new BatchSubmitRequest(
@@ -445,7 +446,7 @@ class XAIBatchAdapterTest {
                             }
                           ]
                         }
-                        """, true))
+                        """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         adapter.submitBatch(new BatchSubmitRequest(

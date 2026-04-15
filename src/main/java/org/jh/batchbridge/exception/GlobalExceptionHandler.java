@@ -83,6 +83,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalApi(ExternalApiException e) {
+        log.error("External API error", e);
         String message = messageSource.getMessage("toast.context.failed.desc", null, LocaleContextHolder.getLocale());
         return buildError(HttpStatus.BAD_GATEWAY, "CONTEXT_FETCH_FAILED", message);
     }

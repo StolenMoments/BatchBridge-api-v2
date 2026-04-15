@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.ClientHttpResponse;
+import java.net.http.HttpClient;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -63,7 +64,10 @@ public class ClaudeBatchAdapter implements BatchApiPort {
             @Value("${batch-bridge.claude.default-max-tokens:63000}") int defaultMaxTokens,
             ObjectMapper objectMapper
     ) {
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(connectTimeout))
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofMillis(readTimeout));
 
         this.restClient = RestClient.builder()
