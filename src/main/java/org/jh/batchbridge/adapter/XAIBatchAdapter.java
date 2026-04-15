@@ -327,21 +327,13 @@ public class XAIBatchAdapter implements BatchApiPort {
             return ExternalBatchStatus.IN_PROGRESS;
         }
 
+        // 설계서 D-1: 완료 조건은 num_pending == 0 만 확인.
+        // num_error > 0 이어도 결과 수집 단계로 전환하며, 개별 오류는 fetchResults()에서 처리.
         int pending = zeroIfNull(state.numPending());
-        int success = zeroIfNull(state.numSuccess());
-        int error = zeroIfNull(state.numError());
-        int cancelled = zeroIfNull(state.numCancelled());
-
         if (pending > 0) {
             return ExternalBatchStatus.IN_PROGRESS;
         }
-        if (error > 0 || cancelled > 0) {
-            return ExternalBatchStatus.FAILED;
-        }
-        if (success > 0) {
-            return ExternalBatchStatus.COMPLETED;
-        }
-        return ExternalBatchStatus.IN_PROGRESS;
+        return ExternalBatchStatus.COMPLETED;
     }
 
     private void validateRequest(BatchSubmitRequest request) {

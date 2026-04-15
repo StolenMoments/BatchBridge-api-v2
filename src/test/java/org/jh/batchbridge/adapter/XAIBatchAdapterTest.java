@@ -243,17 +243,20 @@ class XAIBatchAdapterTest {
 
     @Test
     void toBatchStatusMapsExpectedStates() {
+        // num_pending > 0 → IN_PROGRESS
         assertThat(adapter.toBatchStatus(null)).isEqualTo(ExternalBatchStatus.IN_PROGRESS);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 2, 7, 1, 0)))
                 .isEqualTo(ExternalBatchStatus.IN_PROGRESS);
+
+        // num_pending == 0 → COMPLETED (num_error 여부와 무관하게 결과 수집 단계로 전환)
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 10, 0, 0)))
                 .isEqualTo(ExternalBatchStatus.COMPLETED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 8, 2, 0)))
-                .isEqualTo(ExternalBatchStatus.FAILED);
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 0, 10, 0)))
-                .isEqualTo(ExternalBatchStatus.FAILED);
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
         assertThat(adapter.toBatchStatus(new XAIBatchAdapter.XAIBatchState(10, 0, 0, 0, 0)))
-                .isEqualTo(ExternalBatchStatus.IN_PROGRESS);
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
     }
 
     // ─── submitBatch ──────────────────────────────────────────────────────────
@@ -507,7 +510,7 @@ class XAIBatchAdapterTest {
     // ─── fetchStatus ──────────────────────────────────────────────────────────
 
     @Test
-    void fetchStatusReturnsFailedWhenAnyRequestFailed() {
+    void fetchStatusReturnsCompletedWhenNumPendingIsZeroEvenIfSomeErrored() {
         server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
@@ -523,8 +526,9 @@ class XAIBatchAdapterTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        assertThat(adapter.fetchStatus(new ExternalBatchId("batch_123")))
-                .isEqualTo(new BatchStatusResult(ExternalBatchStatus.FAILED, null));
+        // num_pending == 0 이므로 결과 수집 단계로 전환. 개별 오류는 fetchResults()에서 처리.
+        assertThat(adapter.fetchStatus(new ExternalBatchId("batch_123")).status())
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
     }
 
     @Test
@@ -549,7 +553,7 @@ class XAIBatchAdapterTest {
     }
 
     @Test
-    void fetchStatusReturnsFailedWhenAllRequestsFailed() {
+    void fetchStatusReturnsCompletedWhenAllRequestsErrored() {
         server.expect(once(), requestTo("https://api.x.ai/v1/batches/batch_123"))
                 .andRespond(withSuccess("""
                         {
@@ -564,8 +568,9 @@ class XAIBatchAdapterTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
+        // 전부 실패여도 num_pending == 0 이면 COMPLETED. 각 프롬프트 오류는 fetchResults()에서 처리.
         assertThat(adapter.fetchStatus(new ExternalBatchId("batch_123")).status())
-                .isEqualTo(ExternalBatchStatus.FAILED);
+                .isEqualTo(ExternalBatchStatus.COMPLETED);
     }
 
     @Test
