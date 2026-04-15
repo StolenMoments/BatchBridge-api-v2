@@ -370,9 +370,9 @@ public class XAIBatchAdapter implements BatchApiPort {
         PromptType promptType = prompt.promptType() != null ? prompt.promptType() : PromptType.TEXT;
         return switch (promptType) {
             case TEXT -> Map.of(
-                    "responses", Map.of(
+                    "chat_get_completion", Map.of(
                             "model", model,
-                            "input", buildUserInput(prompt)
+                            "messages", buildUserInput(prompt)
                     )
             );
             case IMAGE_GENERATION -> Map.of(

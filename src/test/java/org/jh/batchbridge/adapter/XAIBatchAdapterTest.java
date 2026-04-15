@@ -274,9 +274,9 @@ class XAIBatchAdapterTest {
                             {
                               "batch_request_id": "101",
                               "batch_request": {
-                                "responses": {
+                                "chat_get_completion": {
                                   "model": "grok-3",
-                                  "input": [
+                                  "messages": [
                                     {"role": "system", "content": "sys"},
                                     {"role": "user", "content": "<attachments>\\n<attachment name=\\"doc.txt\\">body</attachment>\\n</attachments>\\n\\nuser"}
                                   ]
