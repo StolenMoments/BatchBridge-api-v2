@@ -94,7 +94,7 @@ class BatchControllerTest {
     @Test
     void getList_Returns200() throws Exception {
         BatchSummaryResponse summary = new BatchSummaryResponse(
-                1L, "label", "model", BatchStatus.COMPLETED, 1, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
+                1L, "label", "model", BatchStatus.COMPLETED, 1, 1, 0, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
         );
         BatchListResponse response = new BatchListResponse(List.of(summary), 1L, 1, 1, 20);
 
@@ -107,6 +107,9 @@ class BatchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].successCount").value(1))
+                .andExpect(jsonPath("$.data.content[0].failedCount").value(0))
+                .andExpect(jsonPath("$.data.content[0].promptCount").value(1))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.page").value(1));
     }

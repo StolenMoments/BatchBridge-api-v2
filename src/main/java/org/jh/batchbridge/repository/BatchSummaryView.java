@@ -9,6 +9,8 @@ public interface BatchSummaryView {
     String getModel();
     BatchStatus getStatus();
     long getPromptCount();
+    long getSuccessCount();
+    long getFailedCount();
     LocalDateTime getCreatedAt();
     LocalDateTime getSubmittedAt();
     LocalDateTime getCompletedAt();

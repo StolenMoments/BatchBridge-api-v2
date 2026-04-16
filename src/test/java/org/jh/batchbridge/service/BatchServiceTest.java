@@ -145,6 +145,16 @@ class BatchServiceTest {
             }
 
             @Override
+            public long getSuccessCount() {
+                return 2L;
+            }
+
+            @Override
+            public long getFailedCount() {
+                return 1L;
+            }
+
+            @Override
             public LocalDateTime getCreatedAt() {
                 return LocalDateTime.of(2026, 3, 19, 12, 0);
             }
@@ -167,6 +177,8 @@ class BatchServiceTest {
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).promptCount()).isEqualTo(3);
+        assertThat(response.content().get(0).successCount()).isEqualTo(2);
+        assertThat(response.content().get(0).failedCount()).isEqualTo(1);
         assertThat(response.page()).isEqualTo(1);
         verify(batchRepository).findBatchSummaries(any(), any());
     }
