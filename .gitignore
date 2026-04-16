@@ -46,3 +46,4 @@ application-local.yaml
 ### Local ###
 docs/
 .claude/
+claude_work.sh
