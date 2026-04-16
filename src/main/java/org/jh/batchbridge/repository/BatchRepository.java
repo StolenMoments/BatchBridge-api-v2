@@ -3,6 +3,7 @@ package org.jh.batchbridge.repository;
 import java.util.List;
 import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
+import org.jh.batchbridge.domain.PromptStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +24,8 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
                         b.model as model,
                         b.status as status,
                         count(p.id) as promptCount,
+                        sum(case when p.status = org.jh.batchbridge.domain.PromptStatus.COMPLETED then 1 else 0 end) as successCount,
+                        sum(case when p.status = org.jh.batchbridge.domain.PromptStatus.FAILED then 1 else 0 end) as failedCount,
                         b.createdAt as createdAt,
                         b.submittedAt as submittedAt,
                         b.completedAt as completedAt

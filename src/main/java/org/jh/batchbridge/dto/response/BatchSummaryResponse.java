@@ -12,6 +12,8 @@ public record BatchSummaryResponse(
         String model,
         BatchStatus status,
         int promptCount,
+        int successCount,
+        int failedCount,
         LocalDateTime createdAt,
         @Nullable LocalDateTime submittedAt,
         @Nullable LocalDateTime completedAt
@@ -23,6 +25,8 @@ public record BatchSummaryResponse(
                 batch.getModel(),
                 batch.getStatus(),
                 batch.getPromptCount(),
+                0,
+                0,
                 batch.getCreatedAt(),
                 batch.getSubmittedAt(),
                 batch.getCompletedAt()
@@ -36,6 +40,8 @@ public record BatchSummaryResponse(
                 batch.getModel(),
                 batch.getStatus(),
                 Math.toIntExact(batch.getPromptCount()),
+                Math.toIntExact(batch.getSuccessCount()),
+                Math.toIntExact(batch.getFailedCount()),
                 batch.getCreatedAt(),
                 batch.getSubmittedAt(),
                 batch.getCompletedAt()

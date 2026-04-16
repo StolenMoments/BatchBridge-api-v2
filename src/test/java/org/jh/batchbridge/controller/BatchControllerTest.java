@@ -94,7 +94,7 @@ class BatchControllerTest {
     @Test
     void getList_Returns200() throws Exception {
         BatchSummaryResponse summary = new BatchSummaryResponse(
-                1L, "label", "model", BatchStatus.COMPLETED, 1, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
+                1L, "label", "model", BatchStatus.COMPLETED, 1, 1, 0, LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now()
         );
         BatchListResponse response = new BatchListResponse(List.of(summary), 1L, 1, 1, 20);
 
