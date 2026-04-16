@@ -250,7 +250,7 @@ public class BatchService {
         for (BatchPrompt prompt : targetPrompts) {
             PromptResult result = results.get(prompt.getId());
             if (result != null && result.success()) {
-                prompt.complete(result.responseContent());
+                prompt.complete(result.responseContent(), result.resultMediaPath());
                 resynced++;
             } else {
                 String errorMsg = (result != null && result.errorMessage() != null && !result.errorMessage().isBlank())

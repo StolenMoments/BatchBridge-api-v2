@@ -536,4 +536,31 @@ class BatchServiceTest {
         assertThat(p3.getStatus()).isEqualTo(PromptStatus.FAILED);
         assertThat(p3.getErrorMessage()).isEqualTo("still-no-result");
     }
+
+    @Test
+    void syncPrompts_WhenImageResult_SavesResultMediaPath() {
+        Batch batch = Batch.builder()
+                .id(1L)
+                .status(BatchStatus.COMPLETED)
+                .model("grok-imagine-image")
+                .externalBatchId("ext-id")
+                .build();
+        BatchPrompt imagePrompt = BatchPrompt.builder().id(101L).status(PromptStatus.FAILED).errorMessage("old-error").build();
+        batch.addPrompt(imagePrompt);
+
+        when(batchRepository.findById(1L)).thenReturn(Optional.of(batch));
+        when(batchApiClientFactory.getAdapter("grok-imagine-image")).thenReturn(batchApiPort);
+
+        Map<Long, PromptResult> results = Map.of(
+                101L, new PromptResult(true, null, null, "batches/1/101/image.jpg")
+        );
+        when(batchApiPort.fetchResults(any(), any())).thenReturn(results);
+
+        BatchSyncPromptsResponse response = batchService.syncPrompts(1L);
+
+        assertThat(response.resynced()).isEqualTo(1);
+        assertThat(imagePrompt.getStatus()).isEqualTo(PromptStatus.COMPLETED);
+        assertThat(imagePrompt.getResultMediaPath()).isEqualTo("batches/1/101/image.jpg");
+        assertThat(imagePrompt.getResponseContent()).isNull();
+    }
 }
