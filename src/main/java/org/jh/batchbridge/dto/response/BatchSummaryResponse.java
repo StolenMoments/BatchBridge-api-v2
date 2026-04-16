@@ -1,7 +1,6 @@
 package org.jh.batchbridge.dto.response;
 
 import java.time.LocalDateTime;
-import org.jh.batchbridge.domain.Batch;
 import org.jh.batchbridge.domain.BatchStatus;
 import org.jh.batchbridge.repository.BatchSummaryView;
 import org.springframework.lang.Nullable;
@@ -18,21 +17,6 @@ public record BatchSummaryResponse(
         @Nullable LocalDateTime submittedAt,
         @Nullable LocalDateTime completedAt
 ) {
-    public static BatchSummaryResponse from(Batch batch) {
-        return new BatchSummaryResponse(
-                batch.getId(),
-                batch.getLabel(),
-                batch.getModel(),
-                batch.getStatus(),
-                batch.getPromptCount(),
-                0,
-                0,
-                batch.getCreatedAt(),
-                batch.getSubmittedAt(),
-                batch.getCompletedAt()
-        );
-    }
-
     public static BatchSummaryResponse from(BatchSummaryView batch) {
         return new BatchSummaryResponse(
                 batch.getId(),

@@ -107,6 +107,9 @@ class BatchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].successCount").value(1))
+                .andExpect(jsonPath("$.data.content[0].failedCount").value(0))
+                .andExpect(jsonPath("$.data.content[0].promptCount").value(1))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.page").value(1));
     }
