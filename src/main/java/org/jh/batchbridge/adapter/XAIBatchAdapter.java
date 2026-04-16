@@ -307,9 +307,8 @@ public class XAIBatchAdapter implements BatchApiPort {
                     return new PromptResult(true, null, null, mediaPath);
                 }
             }
-            if (response.videoGeneration() != null && response.videoGeneration().data() != null
-                    && !response.videoGeneration().data().isEmpty()) {
-                String url = response.videoGeneration().data().getFirst().url();
+            if (response.videoGeneration() != null && response.videoGeneration().video() != null) {
+                String url = response.videoGeneration().video().url();
                 if (StringUtils.hasText(url)) {
                     if (batchId == null) {
                         log.warn("internalBatchId is null — media will be stored under null directory [promptId={}]", promptId);
@@ -544,7 +543,7 @@ public class XAIBatchAdapter implements BatchApiPort {
     }
 
     record XAIVideoGeneration(
-            List<XAIVideoData> data
+            XAIVideoData video
     ) {
     }
 

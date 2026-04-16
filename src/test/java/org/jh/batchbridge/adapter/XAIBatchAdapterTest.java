@@ -234,6 +234,32 @@ class XAIBatchAdapterTest {
     }
 
     @Test
+    void parseResultsPageDownloadsVideoFromVideoGenerationResponse() {
+        when(mediaStorageService.download(5L, 109L, "https://vidgen.x.ai/video.mp4"))
+                .thenReturn("/app/media/5/109.mp4");
+
+        Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
+                new XAIBatchAdapter.XAIResultItem(
+                        "109",
+                        new XAIBatchAdapter.XAIBatchResult(
+                                new XAIBatchAdapter.XAIResponsePayload(
+                                        null,
+                                        null,
+                                        new XAIBatchAdapter.XAIVideoGeneration(
+                                                new XAIBatchAdapter.XAIVideoData("https://vidgen.x.ai/video.mp4")
+                                        )
+                                ),
+                                null, null, null
+                        ),
+                        null
+                )
+        ), Set.of(109L), 5L);
+
+        assertThat(results).containsEntry(109L, new PromptResult(true, null, null, "/app/media/5/109.mp4"));
+        verify(mediaStorageService).download(5L, 109L, "https://vidgen.x.ai/video.mp4");
+    }
+
+    @Test
     void parseResultsPageTreatsStringErrorAsFailure() {
         Map<Long, PromptResult> results = adapter.parseResultsPage(List.of(
                 new XAIBatchAdapter.XAIResultItem(
