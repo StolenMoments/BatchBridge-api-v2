@@ -414,7 +414,7 @@ public class XAIBatchAdapter implements BatchApiPort {
                     "video_generation", Map.of(
                             "model", model,
                             "prompt", prompt.userPrompt(),
-                            "video_url", Map.of("url", prompt.referenceMediaUrl())
+                            "video_url", prompt.referenceMediaUrl()
                     )
             );
         };
