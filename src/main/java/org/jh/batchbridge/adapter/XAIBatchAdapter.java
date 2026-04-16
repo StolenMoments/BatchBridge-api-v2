@@ -398,11 +398,10 @@ public class XAIBatchAdapter implements BatchApiPort {
                     )
             );
             case IMAGE_EDIT -> Map.of(
-                    "url", "/v1/images/edits",
-                    "body", Map.of(
+                    "image_edit", Map.of(
                             "model", model,
                             "prompt", prompt.userPrompt(),
-                            "image", Map.of("url", prompt.referenceMediaUrl())
+                            "image", Map.of("url", prompt.referenceMediaUrl(), "type", "image_url")
                     )
             );
             case VIDEO_GENERATION -> Map.of(
