@@ -91,7 +91,6 @@ public class BatchService {
                 promptPayload.userPrompt(),
                 promptPayload.promptType(),
                 promptPayload.referenceMediaUrl(),
-                null,
                 attachments
         );
         batch.addPrompt(prompt);

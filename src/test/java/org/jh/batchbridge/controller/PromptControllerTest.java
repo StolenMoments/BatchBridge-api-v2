@@ -66,7 +66,7 @@ class PromptControllerTest {
 
     @Test
     void updatePrompt_Returns200() throws Exception {
-        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user", null, null, null, null);
+        PromptUpdateRequest request = new PromptUpdateRequest("updated-label", null, "updated-user", null, null, null);
         BatchPromptResponse response = new BatchPromptResponse(10L, "updated-label", "system", "updated-user", PromptStatus.PENDING, null, null);
 
         when(promptService.updatePrompt(eq(1L), eq(10L), any(PromptUpdateRequest.class))).thenReturn(response);
@@ -115,7 +115,7 @@ class PromptControllerTest {
 
     @Test
     void addPrompt_WithPromptType_ReturnsPromptType() throws Exception {
-        PromptAddRequest request = new PromptAddRequest("label", "system", "user", PromptType.IMAGE_GENERATION, null, null, null);
+        PromptAddRequest request = new PromptAddRequest("label", "system", "user", PromptType.IMAGE_GENERATION, null, null);
         BatchPromptResponse response = new BatchPromptResponse(1L, "label", "system", "user", PromptStatus.PENDING,
                 PromptType.IMAGE_GENERATION, null, null, null, null, java.util.List.of());
 

@@ -47,3 +47,5 @@ application-local.yaml
 docs/
 .claude/
 claude_work.sh
+claude_work.bat
+claude_work.py
