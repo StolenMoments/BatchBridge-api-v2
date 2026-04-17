@@ -11,10 +11,9 @@ public record PromptAddRequest(
         @NotBlank(message = "userPrompt is required") String userPrompt,
         @Nullable PromptType promptType,
         @Nullable String referenceMediaUrl,
-        @Nullable Long referencePromptId,
         @Nullable List<PromptAttachmentRequest> attachments
 ) {
     public PromptAddRequest(String label, String systemPrompt, String userPrompt) {
-        this(label, systemPrompt, userPrompt, null, null, null, null);
+        this(label, systemPrompt, userPrompt, null, null, null);
     }
 }
